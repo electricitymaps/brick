@@ -16,8 +16,9 @@ touch WORKSPACE
 ```
 
 Then, for each folder that you'd like to build/deploy, you can create a BUILD.yaml file that describes the dependencies and the build/deploy steps.
+Each step is cached and will only re-run if the commands change, or if the input change.
 
-This is an example of the configuration used to build the Tomorrow website:
+This is an example of the configuration used to build the Tomorrow website to Github Pages:
 
 ```yaml
 name: www
@@ -46,7 +47,7 @@ steps:
 
   deploy:
     commands:
-      - mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts  # Could be automatically added by brick
+      - mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
       - --mount=type=ssh git clone --depth 1 git@github.com:tmrowco/tmrowapp.git -b gh-pages
       - rm -rf ./tmrowapp/* && cp -r ../www/public/* ./tmrowapp
       - echo 'www.tmrow.com' > tmrowapp/CNAME
