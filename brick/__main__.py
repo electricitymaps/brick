@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import json
 import glob
 import logging
 import tempfile
@@ -8,9 +7,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tarfile
-
-from io import BytesIO
 
 from braceexpand import braceexpand
 import click
