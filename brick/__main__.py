@@ -46,7 +46,7 @@ def add_version_to_tag(name):
     ]
 
 
-def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False):
+def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None):
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
     if os.path.exists(dockerfile_path):
         logger.warn(f'{dockerfile_path} already exists at root of workspace')
@@ -62,6 +62,16 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False):
             env['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK']
         if no_cache:
             cmd += ' --no-cache'
+        for k, v in (secrets or {}).items():
+            src = os.path.expanduser(v["src"])
+            #cmd += f' --secret id={k},src={src}'
+            # For now we tar the whole secrets directory
+            # as buildkit doesn't support mounting directories
+            # See https://github.com/moby/buildkit/issues/970
+            basename = os.path.basename(src)
+            tarfile = os.path.join(ROOT_PATH, f'{basename}.tar.gz')
+            subprocess.run(f'tar zc -C {src} . > {tarfile}', shell=True, check=True)
+            cmd += f' --secret id={k},src={tarfile}'
         with subprocess.Popen(
                 args=cmd,
                 encoding='utf8',
@@ -71,7 +81,8 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False):
                 env=env,
                 universal_newlines=True,
                 cwd=ROOT_PATH) as p:
-            logs = []
+            logs = [cmd]
+            logger.debug(cmd)
             while True:
                 line = p.stderr.readline()
                 if line == "":
@@ -89,6 +100,12 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False):
     except (KeyboardInterrupt, SystemExit):
         os.remove(dockerfile_path)
         raise
+    finally:
+        # Cleanup tar files
+        for k, v in (secrets or {}).items():
+            src = os.path.expanduser(v["src"])
+            tarfile = os.path.join(ROOT_PATH, f'{basename}.tar.gz')
+            os.remove(tarfile)
 
     with open(iidfile) as f:
         digest = f.readline().split(":")[1].strip()
@@ -120,12 +137,48 @@ def expand_inputs(target, inputs):
     return ret
 
 
-def generate_dockerfile_contents(from_image, inputs, commands, workdir):
+def generate_dockerfile_contents(from_image,
+                                 inputs,
+                                 commands,
+                                 workdir,
+                                 inputs_from_build=None,
+                                 pass_ssh=False,
+                                 secrets=None):
     dockerfile_contents = f"FROM {from_image}\n"
+    if inputs_from_build:
+        dockerfile_contents += '\n'.join(
+            [f"COPY --from={x[0]} /home/{x[1]} /home/{x[1]}"
+             for x in inputs_from_build]) + '\n'
     dockerfile_contents += '\n'.join([f"COPY {x} /home/{x}"
                                       for x in inputs]) + '\n'
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
-    dockerfile_contents += '\n'.join([f"RUN {cmd}"
+    run_flags = []
+    if pass_ssh:
+        run_flags += ['--mount=type=ssh']
+    for k, v in (secrets or {}).items():
+        # run_flags += [f'--mount=type=secret,id={k},target={v["target"]},required']
+        # Use the tar file passed instead
+        run_flags += [f'--mount=type=secret,id={k},target={v["target"]}.tar.gz,required']
+
+    def generate_run_command(cmd):
+        if (secrets or {}).items():
+            # Wrap the run command with a tar command
+            # to untar and cleanup after us
+            pre = ' && '.join([
+                 f'mkdir -p {v["target"]} && tar zxf {v["target"]}.tar.gz -C{v["target"]}'
+                 for k, v in (secrets or {}).items()])
+            post = ' && '.join([
+                 f'ls  && rm -rf {v["target"]}'
+                 for k, v in (secrets or {}).items()])
+            return f"""RUN {' '.join(run_flags)} \
+                       {pre} && \
+                       {cmd} && \
+                       {post}
+                    """
+        else:
+            return f"RUN {' '.join(run_flags)} {cmd}"
+
+    dockerfile_contents += '\n'.join([generate_run_command(cmd)
                                       for cmd in commands]) + '\n'
     return dockerfile_contents
 
@@ -153,7 +206,7 @@ def prepare(target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=step['image'], inputs=inputs,
         commands=step.get('commands', []),
-        workdir=step.get('workdir', target_rel_path))
+        workdir=target_rel_path)
 
     # Docker build
     logger.info(f'Preparing {target_rel_path}..')
@@ -188,7 +241,7 @@ def build(ctx, target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=digest, inputs=inputs,
         commands=step.get('commands', []),
-        workdir=step.get('workdir', target_rel_path))
+        workdir=target_rel_path)
 
     # Docker build
     logger.info(f'🔨 Building {target_rel_path}..')
@@ -200,6 +253,8 @@ def build(ctx, target):
     logger.info('Collecting outputs..')
     for output in step.get('outputs', []):
         logger.debug(f'Collecting {os.path.join(target_rel_path, output)}..')
+        # TODO: Use ocker container cp instead
+        # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.Container.get_archive
         host_path = os.path.join(ROOT_PATH, target_rel_path, output)
         container_path = f'/home/{os.path.join(target_rel_path, output)}'
         mounted_container_path = f'/mnt'
@@ -244,7 +299,7 @@ def test(ctx, target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=build_tag, inputs=inputs,
         commands=step.get('commands', []),
-        workdir=step.get('workdir', target_rel_path))
+        workdir=target_rel_path)
 
     # Docker build
     logger.info(f'🔍 Testing {target_rel_path}..')
@@ -280,10 +335,24 @@ def deploy(ctx, target):
     step = steps['deploy']
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
     dockerfile_contents = '# syntax = docker/dockerfile:experimental\n'
+    inputs_from_build = None
+    from_image = previous_tag
+
+    if 'image' in step:
+        # Using a different image for deploy
+        from_image = step['image']
+        # Prepare command to gather the output of build
+        outputs = steps.get('build', {}).get('outputs')
+        if outputs:
+            inputs_from_build = [(previous_tag, os.path.join(target_rel_path, o)) for o in outputs]
+
     dockerfile_contents += generate_dockerfile_contents(
-        from_image=previous_tag, inputs=inputs,
+        from_image=from_image, inputs=inputs,
+        inputs_from_build=inputs_from_build,
         commands=step.get('commands', []),
-        workdir=step.get('workdir', target_rel_path))
+        workdir=target_rel_path,
+        pass_ssh=step.get('pass_ssh', False),
+        secrets=step.get('secrets'))
 
     # Docker build
     logger.info(f'🚀 Deploying {target_rel_path}..')
@@ -291,7 +360,8 @@ def deploy(ctx, target):
     digest = docker_build(
         tags=compute_tags(name, 'deploy'),
         dockerfile_contents=dockerfile_contents,
-        pass_ssh=step.get('pass_ssh', False))
+        pass_ssh=step.get('pass_ssh', False),
+        secrets=step.get('secrets'))
     logger.info(f'💯 Deploy finished!')
 
 
