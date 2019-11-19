@@ -324,6 +324,8 @@ def deploy(ctx, target):
         logger.info('Nothing to deploy')
         return
 
+    step = steps['deploy']
+
     # Make sure to run the previous step
     if 'test' in steps:
         previous_tag = ctx.invoke(test, target=target)
@@ -332,7 +334,16 @@ def deploy(ctx, target):
     else:
         raise Exception('Could not detect previous step')
 
-    step = steps['deploy']
+    # Push image if needed
+    if step.get('push_image') is True and steps.get('build', {}).get('tag'):
+        tag = steps['build']['tag']
+        logger.info(f'📡 Pushing {tag}..')
+        for line in docker_client.images.push(tag, stream=True, decode=True):
+            logger.debug(line)
+
+    if 'inputs' not in step and 'command' not in step:
+        return
+
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
     dockerfile_contents = '# syntax = docker/dockerfile:experimental\n'
     inputs_from_build = None
