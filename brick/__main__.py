@@ -141,6 +141,7 @@ def generate_dockerfile_contents(from_image,
                                  inputs,
                                  commands,
                                  workdir,
+                                 entrypoint=None,
                                  inputs_from_build=None,
                                  pass_ssh=False,
                                  secrets=None):
@@ -180,6 +181,10 @@ def generate_dockerfile_contents(from_image,
 
     dockerfile_contents += '\n'.join([generate_run_command(cmd)
                                       for cmd in commands]) + '\n'
+    # Add entrypoint
+    if entrypoint:
+        dockerfile_contents += f'CMD {entrypoint}'
+
     return dockerfile_contents
 
 
@@ -241,6 +246,7 @@ def build(ctx, target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=digest, inputs=inputs,
         commands=step.get('commands', []),
+        entrypoint=step.get('entrypoint'),
         workdir=target_rel_path)
 
     # Docker build
