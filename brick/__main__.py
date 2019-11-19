@@ -341,7 +341,7 @@ def deploy(ctx, target):
         for line in docker_client.images.push(tag, stream=True, decode=True):
             logger.debug(line)
 
-    if 'inputs' not in step and 'command' not in step:
+    if 'inputs' not in step and 'commands' not in step:
         return
 
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
