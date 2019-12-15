@@ -70,7 +70,10 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
             # See https://github.com/moby/buildkit/issues/970
             basename = os.path.basename(src)
             tarfile = os.path.join(ROOT_PATH, f'{basename}.tar.gz')
-            subprocess.run(f'tar zc -C {src} . > {tarfile}', shell=True, check=True)
+            subprocess.run(
+                f"tar zc -C {src} --exclude='logs/' . > {tarfile}",
+                shell=True,
+                check=True)
             cmd += f' --secret id={k},src={tarfile}'
         with subprocess.Popen(
                 args=cmd,
