@@ -71,7 +71,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
             basename = os.path.basename(src)
             tarfile = os.path.join(ROOT_PATH, f'{basename}.tar.gz')
             subprocess.run(
-                f"tar zc -C {src} --exclude='logs/' . > {tarfile}",
+                f"tar zc -C {src} --exclude='logs' . > {tarfile}",
                 shell=True,
                 check=True)
             cmd += f' --secret id={k},src={tarfile}'
