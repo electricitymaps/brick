@@ -46,6 +46,27 @@ def add_version_to_tag(name):
     ]
 
 
+def docker_run(tag, command, volumes=[], ports=[]):
+    container = docker_client.containers.run(
+        tag,
+        command=command,
+        ports=ports,
+        volumes=volumes,
+        remove=True,
+        detach=True)
+    # Attach
+    try:
+        for output in container.logs(stream=True, follow=True):
+            sys.stdout.write(output.decode('utf8'))
+    except (KeyboardInterrupt, SystemExit):
+        # Quit
+        container.kill()
+        raise
+    result = container.wait()
+    if result['StatusCode']:
+        exit(result['StatusCode'])
+
+
 def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None):
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
     if os.path.exists(dockerfile_path):
@@ -217,7 +238,7 @@ def prepare(target):
         workdir=target_rel_path)
 
     # Docker build
-    logger.info(f'Preparing {target_rel_path}..')
+    logger.info(f'🔨 Preparing {target_rel_path}..')
     tags = compute_tags(name, 'prepare')
     # TODO: When a PR is merged, `cache_from` will unfortunately not
     # include the branch from which we're merging
@@ -383,6 +404,41 @@ def deploy(ctx, target):
         pass_ssh=step.get('pass_ssh', False),
         secrets=step.get('secrets'))
     logger.info(f'💯 Deploy finished!')
+
+
+@cli.command()
+@click.argument('target', default='.')
+@click.pass_context
+def develop(ctx, target):
+    target_rel_path = os.path.relpath(target, start=ROOT_PATH)
+    with open(os.path.join(target, 'BUILD.yaml')) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    steps = config['steps']
+    name = config['name']
+
+    # Make sure to run the previous step
+    digest = ctx.invoke(prepare, target=target)
+
+    step = steps['develop']
+    build_step = steps['build']
+    inputs = expand_inputs(target_rel_path, build_step['inputs'])
+    volumes = {}
+    for host_path in inputs:
+        volumes[os.path.abspath(os.path.join(ROOT_PATH, host_path))] = {
+            'bind': f"/home/{host_path}",
+            'mode': 'rw'
+        }
+    ports = {}
+    for port in step.get('ports', []):
+        ports[f'{port}/tcp'] = port
+    command = step.get('command')
+
+    # Docker run
+    logger.info(f'🔨 Developping {target_rel_path}..')
+    docker_run(tag=digest, command=command, volumes=volumes, ports=ports)
+
+    logger.info(f'👋 Finished developping {target_rel_path}')
+    return digest
 
 
 def entrypoint():
