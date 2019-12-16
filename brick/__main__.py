@@ -46,7 +46,7 @@ def add_version_to_tag(name):
     ]
 
 
-def docker_run(tag, command, volumes=[], ports=[]):
+def docker_run(tag, command, volumes=None, ports=None):
     container = docker_client.containers.run(
         tag,
         command=command,
@@ -430,7 +430,7 @@ def develop(ctx, target):
         }
     ports = {}
     for port in step.get('ports', []):
-        ports[f'{port}/tcp'] = port
+        ports[f'{port}'] = port
     command = step.get('command')
 
     # Docker run
