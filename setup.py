@@ -20,4 +20,9 @@ setuptools.setup(
     entry_points={
         'console_scripts': ['brick=brick.__main__:entrypoint']
     },
+    install_requires=[
+        'braceexpand==0.1.2',
+        'Click==7.0',
+        'pyaml==19.4.1',
+    ]
 )
