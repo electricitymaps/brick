@@ -24,5 +24,7 @@ setuptools.setup(
         'braceexpand==0.1.2',
         'Click==7.0',
         'pyaml==19.4.1',
+        'docker==3.7.0',
+        'yamllint==1.17.0'
     ]
 )
