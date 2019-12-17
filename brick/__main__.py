@@ -31,7 +31,7 @@ while not os.path.exists(os.path.join(ROOT_PATH, 'WORKSPACE')):
 GIT_BRANCH = subprocess.check_output(
     "git branch --contains `git rev-parse HEAD` | "
     "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
-    r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n')
+    r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n').replace('#', '')
 
 
 def compute_tags(name, step_name):
