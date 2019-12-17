@@ -31,7 +31,7 @@ while not os.path.exists(os.path.join(ROOT_PATH, 'WORKSPACE')):
 GIT_BRANCH = subprocess.check_output(
     "git branch --contains `git rev-parse HEAD` | "
     "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
-    r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n')
+    r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n').replace('#', '')
 
 
 def compute_tags(name, step_name):
@@ -382,10 +382,11 @@ def deploy(ctx, target):
     if 'image' in step:
         # Using a different image for deploy
         from_image = step['image']
-        # Prepare command to gather the output of build
-        outputs = steps.get('build', {}).get('outputs')
-        if outputs:
-            inputs_from_build = [(previous_tag, os.path.join(target_rel_path, o)) for o in outputs]
+        # Prepare command to gather the input and output of build step
+        outputs = steps.get('build', {}).get('outputs', [])
+        inputs_from_build = [
+            (previous_tag, os.path.join(target_rel_path, o))
+            for o in ['.'] + outputs]
 
     dockerfile_contents += generate_dockerfile_contents(
         from_image=from_image, inputs=inputs,
