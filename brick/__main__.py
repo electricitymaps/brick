@@ -382,10 +382,11 @@ def deploy(ctx, target):
     if 'image' in step:
         # Using a different image for deploy
         from_image = step['image']
-        # Prepare command to gather the output of build
-        outputs = steps.get('build', {}).get('outputs')
-        if outputs:
-            inputs_from_build = [(previous_tag, os.path.join(target_rel_path, o)) for o in outputs]
+        # Prepare command to gather the input and output of build step
+        outputs = steps.get('build', {}).get('outputs', [])
+        inputs_from_build = [
+            (previous_tag, os.path.join(target_rel_path, o))
+            for o in ['.'] + outputs]
 
     dockerfile_contents += generate_dockerfile_contents(
         from_image=from_image, inputs=inputs,
