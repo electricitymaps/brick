@@ -169,7 +169,8 @@ def generate_dockerfile_contents(from_image,
                                  entrypoint=None,
                                  inputs_from_build=None,
                                  pass_ssh=False,
-                                 secrets=None):
+                                 secrets=None,
+                                 environment=None):
     dockerfile_contents = f"FROM {from_image}\n"
     if inputs_from_build:
         dockerfile_contents += '\n'.join(
@@ -185,6 +186,9 @@ def generate_dockerfile_contents(from_image,
         # run_flags += [f'--mount=type=secret,id={k},target={v["target"]},required']
         # Use the tar file passed instead
         run_flags += [f'--mount=type=secret,id={k},target={v["target"]}.tar.gz,required']
+
+    for k, v in (environment or {}).items():
+        dockerfile_contents += f"ENV {k}={v}\n"
 
     def generate_run_command(cmd):
         if (secrets or {}).items():
@@ -331,7 +335,8 @@ def test(ctx, target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=build_tag, inputs=inputs,
         commands=step.get('commands', []),
-        workdir=target_rel_path)
+        workdir=target_rel_path,
+        environment=step.get('environment', {}))
 
     # Docker build
     logger.info(f'🔍 Testing {target_rel_path}..')
