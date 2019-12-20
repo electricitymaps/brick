@@ -46,12 +46,13 @@ def add_version_to_tag(name):
     ]
 
 
-def docker_run(tag, command, volumes=None, ports=None):
+def docker_run(tag, command, volumes=None, ports=None, environment=None):
     container = docker_client.containers.run(
         tag,
         command=command,
         ports=ports,
         volumes=volumes,
+        environment=environment,
         remove=True,
         detach=True)
     # Attach
@@ -275,8 +276,9 @@ def build(ctx, target):
 
     # Docker build
     logger.info(f'🔨 Building {target_rel_path}..')
+    tags = compute_tags(name, 'build') + add_version_to_tag(step.get('tag', name))
     digest = docker_build(
-        tags=compute_tags(name, 'build') + add_version_to_tag(step.get('tag', name)),
+        tags=tags,
         dockerfile_contents=dockerfile_contents)
 
     # Gather output
@@ -433,10 +435,16 @@ def develop(ctx, target):
     for port in step.get('ports', []):
         ports[f'{port}'] = port
     command = step.get('command')
+    environment = step.get('environment')
 
     # Docker run
     logger.info(f'🔨 Developping {target_rel_path}..')
-    docker_run(tag=digest, command=command, volumes=volumes, ports=ports)
+    docker_run(
+        tag=digest,
+        command=command,
+        volumes=volumes,
+        ports=ports,
+        environment=environment)
 
     logger.info(f'👋 Finished developping {target_rel_path}')
     return digest
