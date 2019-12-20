@@ -46,12 +46,13 @@ def add_version_to_tag(name):
     ]
 
 
-def docker_run(tag, command, volumes=None, ports=None):
+def docker_run(tag, command, volumes=None, ports=None, environment=None):
     container = docker_client.containers.run(
         tag,
         command=command,
         ports=ports,
         volumes=volumes,
+        environment=environment,
         remove=True,
         detach=True)
     # Attach
@@ -168,7 +169,8 @@ def generate_dockerfile_contents(from_image,
                                  entrypoint=None,
                                  inputs_from_build=None,
                                  pass_ssh=False,
-                                 secrets=None):
+                                 secrets=None,
+                                 environment=None):
     dockerfile_contents = f"FROM {from_image}\n"
     if inputs_from_build:
         dockerfile_contents += '\n'.join(
@@ -184,6 +186,9 @@ def generate_dockerfile_contents(from_image,
         # run_flags += [f'--mount=type=secret,id={k},target={v["target"]},required']
         # Use the tar file passed instead
         run_flags += [f'--mount=type=secret,id={k},target={v["target"]}.tar.gz,required']
+
+    for k, v in (environment or {}).items():
+        dockerfile_contents += f"ENV {k}={v}\n"
 
     def generate_run_command(cmd):
         if (secrets or {}).items():
@@ -275,8 +280,9 @@ def build(ctx, target):
 
     # Docker build
     logger.info(f'🔨 Building {target_rel_path}..')
+    tags = compute_tags(name, 'build') + add_version_to_tag(step.get('tag', name))
     digest = docker_build(
-        tags=compute_tags(name, 'build') + add_version_to_tag(step.get('tag', name)),
+        tags=tags,
         dockerfile_contents=dockerfile_contents)
 
     # Gather output
@@ -329,7 +335,8 @@ def test(ctx, target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=build_tag, inputs=inputs,
         commands=step.get('commands', []),
-        workdir=target_rel_path)
+        workdir=target_rel_path,
+        environment=step.get('environment', {}))
 
     # Docker build
     logger.info(f'🔍 Testing {target_rel_path}..')
@@ -433,10 +440,16 @@ def develop(ctx, target):
     for port in step.get('ports', []):
         ports[f'{port}'] = port
     command = step.get('command')
+    environment = step.get('environment')
 
     # Docker run
     logger.info(f'🔨 Developping {target_rel_path}..')
-    docker_run(tag=digest, command=command, volumes=volumes, ports=ports)
+    docker_run(
+        tag=digest,
+        command=command,
+        volumes=volumes,
+        ports=ports,
+        environment=environment)
 
     logger.info(f'👋 Finished developping {target_rel_path}')
     return digest
