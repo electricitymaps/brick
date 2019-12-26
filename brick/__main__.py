@@ -31,7 +31,7 @@ while not os.path.exists(os.path.join(ROOT_PATH, 'WORKSPACE')):
 GIT_BRANCH = subprocess.check_output(
     "git branch --contains `git rev-parse HEAD` | "
     "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
-    r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n').replace('#', '')
+    r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n')
 
 
 def compute_tags(name, step_name):
@@ -42,7 +42,7 @@ def add_version_to_tag(name):
     # Last tag should be the most specific
     return [
         f'{name}:latest',
-        f'{name}:{GIT_BRANCH}',
+        f'{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}',
     ]
 
 
