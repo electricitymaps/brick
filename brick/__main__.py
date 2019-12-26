@@ -42,7 +42,7 @@ def add_version_to_tag(name):
     # Last tag should be the most specific
     return [
         f'{name}:latest',
-        f'{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}',
+        f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}",
     ]
 
 
