@@ -176,7 +176,7 @@ def generate_dockerfile_contents(from_image,
         dockerfile_contents += '\n'.join(
             [f"COPY --from={x[0]} /home/{x[1]} /home/{x[1]}"
              for x in inputs_from_build]) + '\n'
-    dockerfile_contents += '\n'.join([f"COPY {x} /home/{x}"
+    dockerfile_contents += '\n'.join([f'COPY ["{x}", "/home/{x}"]'
                                       for x in inputs]) + '\n'
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
     run_flags = []
@@ -206,7 +206,7 @@ def generate_dockerfile_contents(from_image,
                        {post}
                     """
         else:
-            return f"RUN {' '.join(run_flags)} {cmd}"
+            return f"RUN {' '.join(run_flags + [cmd])}"
 
     dockerfile_contents += '\n'.join([generate_run_command(cmd)
                                       for cmd in commands]) + '\n'
@@ -235,8 +235,12 @@ def prepare(target):
     steps = config['steps']
     name = config['name']
 
+    if 'prepare' not in steps:
+        logger.info('Nothing to prepare')
+        return
+
     step = steps['prepare']
-    inputs = expand_inputs(target_rel_path, step['inputs'])
+    inputs = expand_inputs(target_rel_path, step.get('inputs', []))
     dockerfile_contents = generate_dockerfile_contents(
         from_image=step['image'], inputs=inputs,
         commands=step.get('commands', []),
@@ -271,7 +275,10 @@ def build(ctx, target):
     digest = ctx.invoke(prepare, target=target)
 
     step = steps['build']
-    inputs = expand_inputs(target_rel_path, step['inputs'])
+    inputs = expand_inputs(target_rel_path, step.get('inputs', []))
+    # If no digest is given (because there's no build step)
+    # use current image instead
+    digest = digest or step['image']
     dockerfile_contents = generate_dockerfile_contents(
         from_image=digest, inputs=inputs,
         commands=step.get('commands', []),
