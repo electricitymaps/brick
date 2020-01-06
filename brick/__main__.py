@@ -80,7 +80,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
         cmd = ['docker','-v', 'build', '.', '--iidfile', iidfile, '-f', dockerfile_path]
         env = os.environ
         env['DOCKER_BUILDKIT'] = '1'
-        
+
         if pass_ssh:
             cmd += ['--ssh default']
             env['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK']
@@ -137,7 +137,6 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
     with open(iidfile) as f:
         digest = f.readline().split(":")[1].strip()
     os.remove(iidfile)
-    print('a')
 
     for tag in tags:
         logger.debug(f"Tagging as {tag}..")
