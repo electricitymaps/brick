@@ -77,13 +77,13 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
         dockerfile.write(dockerfile_contents)
     try:
         iidfile = tempfile.mktemp()
-        cmd = f'docker -v build . --iidfile {iidfile} -f {dockerfile_path}'
+        cmd = ['docker','-v', 'build', '.', '--iidfile', iidfile, '-f', dockerfile_path]
         env = {'DOCKER_BUILDKIT': '1'}
         if pass_ssh:
-            cmd += ' --ssh default'
+            cmd += ['--ssh default']
             env['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK']
         if no_cache:
-            cmd += ' --no-cache'
+            cmd += ['--no-cache']
         for k, v in (secrets or {}).items():
             src = os.path.expanduser(v["src"])
             #cmd += f' --secret id={k},src={src}'
@@ -96,7 +96,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
                 f"tar zc -C {src} --exclude='logs' . > {tarfile}",
                 shell=True,
                 check=True)
-            cmd += f' --secret id={k},src={tarfile}'
+            cmd += [f'--secret','id={k},src={tarfile}']
         with subprocess.Popen(
                 args=cmd,
                 encoding='utf8',
