@@ -104,7 +104,6 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
                 encoding='utf8',
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                #shell=True,
                 env=env,
                 universal_newlines=True,
                 cwd=ROOT_PATH) as p:
