@@ -12,9 +12,9 @@ import click
 import docker
 import yaml
 
-from dockerlib import docker_run, docker_build
-from lib import expand_inputs, ROOT_PATH, intersecting_outputs
-from logger import logger, handler
+from .dockerlib import docker_run, docker_build
+from .lib import expand_inputs, ROOT_PATH, intersecting_outputs
+from .logger import logger, handler
 
 docker_client = docker.from_env()
 
@@ -162,7 +162,7 @@ def build(ctx, target):
             # Also pass flags
             flags = ' '.join([f'--{k}' for k, v in ctx.parent.params.items() if v])
             subprocess.run(
-                f'{__file__} {flags} build {os.path.join(ROOT_PATH, dependency)}',
+                f'brick {flags} build {os.path.join(ROOT_PATH, dependency)}',
                 shell=True,
                 check=True,
             )

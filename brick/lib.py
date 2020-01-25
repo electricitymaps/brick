@@ -4,7 +4,7 @@ import os
 import yaml
 from braceexpand import braceexpand
 
-from logger import logger
+from .logger import logger
 
 
 # Discover root path

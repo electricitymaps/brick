@@ -5,8 +5,8 @@ import sys
 
 import docker
 
-from lib import ROOT_PATH
-from logger import logger
+from .lib import ROOT_PATH
+from .logger import logger
 
 docker_client = docker.from_env()
 
