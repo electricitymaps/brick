@@ -8,15 +8,24 @@ import shutil
 import subprocess
 import sys
 
+from braceexpand import braceexpand
 import click
 import docker
 import yaml
 
-from dockerlib import docker_run, docker_build
-from lib import expand_inputs, ROOT_PATH, intersecting_outputs
-from logger import logger, handler
-
 docker_client = docker.from_env()
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
+
+# Discover root path
+ROOT_PATH = os.getcwd()
+while not os.path.exists(os.path.join(ROOT_PATH, 'WORKSPACE')):
+    ROOT_PATH = os.path.join(ROOT_PATH, '..')
 
 # Discover git branch
 GIT_BRANCH = subprocess.check_output(
@@ -35,6 +44,122 @@ def add_version_to_tag(name):
         f'{name}:latest',
         f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}",
     ]
+
+
+def docker_run(tag, command, volumes=None, ports=None, environment=None):
+    container = docker_client.containers.run(
+        tag,
+        command=command,
+        ports=ports,
+        volumes=volumes,
+        environment=environment,
+        remove=True,
+        detach=True)
+    # Attach
+    try:
+        for output in container.logs(stream=True, follow=True):
+            sys.stdout.write(output.decode('utf8'))
+    except (KeyboardInterrupt, SystemExit):
+        # Quit
+        container.kill()
+        raise
+    result = container.wait()
+    if result['StatusCode']:
+        exit(result['StatusCode'])
+
+
+def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None):
+    dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
+    if os.path.exists(dockerfile_path):
+        logger.warn(f'{dockerfile_path} already exists at root of workspace')
+        os.remove(dockerfile_path)
+    with open(dockerfile_path, 'w+') as dockerfile:
+        dockerfile.write(dockerfile_contents)
+    try:
+        iidfile = tempfile.mktemp()
+        cmd = f'docker -v build . --iidfile {iidfile} -f {dockerfile_path}'
+        env = {'DOCKER_BUILDKIT': '1'}
+        if pass_ssh:
+            cmd += ' --ssh default'
+            env['SSH_AUTH_SOCK'] = os.environ['SSH_AUTH_SOCK']
+        if no_cache:
+            cmd += ' --no-cache'
+        for k, v in (secrets or {}).items():
+            src = os.path.expanduser(v["src"])
+            #cmd += f' --secret id={k},src={src}'
+            # For now we tar the whole secrets directory
+            # as buildkit doesn't support mounting directories
+            # See https://github.com/moby/buildkit/issues/970
+            basename = os.path.basename(src)
+            tarfile = os.path.join(ROOT_PATH, f'{basename}.tar.gz')
+            subprocess.run(
+                f"tar zc -C {src} --exclude='logs' . > {tarfile}",
+                shell=True,
+                check=True)
+            cmd += f' --secret id={k},src={tarfile}'
+        with subprocess.Popen(
+                args=cmd,
+                encoding='utf8',
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=True,
+                env=env,
+                universal_newlines=True,
+                cwd=ROOT_PATH) as p:
+            logs = [cmd]
+            logger.debug(cmd)
+            while True:
+                line = p.stderr.readline()
+                if line == "":
+                    break
+                log = line.rstrip('\n')
+                logs += [log]
+                logger.debug(log)
+            returncode = p.wait()
+            if returncode:
+                out, err = p.communicate()
+                logger.error('\n'.join(logs))
+                logger.error(err)
+                exit(returncode)
+            os.remove(dockerfile_path)
+    except (KeyboardInterrupt, SystemExit):
+        os.remove(dockerfile_path)
+        raise
+    finally:
+        # Cleanup tar files
+        for k, v in (secrets or {}).items():
+            src = os.path.expanduser(v["src"])
+            tarfile = os.path.join(ROOT_PATH, f'{basename}.tar.gz')
+            os.remove(tarfile)
+
+    with open(iidfile) as f:
+        digest = f.readline().split(":")[1].strip()
+    os.remove(iidfile)
+
+    for tag in tags:
+        logger.debug(f"Tagging as {tag}..")
+        repository, version = tag.split(':')
+        docker_client.images.get(digest).tag(
+            repository=repository,
+            tag=version)
+
+    return tags[-1]
+
+
+def expand_inputs(target, inputs):
+    ret = []
+    for input_path in inputs:
+        # Also do bash-style brace expansions before globbing
+        for input_path in braceexpand(input_path):
+            matches = glob.glob(os.path.join(ROOT_PATH, target, input_path), recursive=True)
+            if not matches:
+                logger.debug(f'Could not find an match for {os.path.join(ROOT_PATH, target, input_path)}')
+                raise Exception(f'No matches found for input {input_path}')
+            for g in matches:
+                # Paths should be relative to root
+                p = os.path.relpath(g, start=ROOT_PATH)
+                ret.append(p)
+    return ret
 
 
 def generate_dockerfile_contents(from_image,
@@ -94,8 +219,7 @@ def generate_dockerfile_contents(from_image,
 
 @click.group()
 @click.option('--verbose', help='verbose', is_flag=True)
-@click.option('--recursive', help='recursive', is_flag=True)
-def cli(verbose, recursive):
+def cli(verbose):
     if verbose:
         handler.setLevel(logging.DEBUG)
     else:
@@ -151,27 +275,7 @@ def build(ctx, target):
     digest = ctx.invoke(prepare, target=target)
 
     step = steps['build']
-    logger.info(f'🔨 Building {target_rel_path}..')
-
-    # Build dependencies
-    dependencies = intersecting_outputs(target_rel_path, step.get('inputs', []))
-    if dependencies:
-        logger.debug(f'Found dependencies: {dependencies}')
-        for dependency in dependencies:
-            logger.info(f'➡️  Building dependency {dependency}')
-            # Also pass flags
-            flags = ' '.join([f'--{k}' for k, v in ctx.parent.params.items() if v])
-            subprocess.run(
-                f'{__file__} {flags} build {os.path.join(ROOT_PATH, dependency)}',
-                shell=True,
-                check=True,
-            )
-
-    # Expand inputs (globs etc..)
-    # Note dependencies must be done pre-glob
-    # as else globs might return nothing (if they have not been built)
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
-
     # If no digest is given (because there's no build step)
     # use current image instead
     digest = digest or step['image']
@@ -182,6 +286,7 @@ def build(ctx, target):
         workdir=target_rel_path)
 
     # Docker build
+    logger.info(f'🔨 Building {target_rel_path}..')
     tags = compute_tags(name, 'build') + add_version_to_tag(step.get('tag', name))
     digest = docker_build(
         tags=tags,
@@ -191,11 +296,7 @@ def build(ctx, target):
     logger.info('Collecting outputs..')
     for output in step.get('outputs', []):
         logger.debug(f'Collecting {os.path.join(target_rel_path, output)}..')
-        # Make sure we check that outputs are in this folder,
-        # as else the dependency system won't work
-        if os.path.abspath(os.path.join(ROOT_PATH, target_rel_path)) not in os.path.abspath(os.path.join(ROOT_PATH, target_rel_path, output)):
-            raise Exception(f'Output {output} is not in current folder')
-        # TODO: Use docker container cp instead
+        # TODO: Use ocker container cp instead
         # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.Container.get_archive
         host_path = os.path.join(ROOT_PATH, target_rel_path, output)
         container_path = f'/home/{os.path.join(target_rel_path, output)}'
