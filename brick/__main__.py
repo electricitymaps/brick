@@ -282,6 +282,8 @@ def deploy(ctx, target):
         tag = steps['build']['tag']
         logger.info(f'📡 Pushing {tag}..')
         for line in docker_client.images.push(tag, stream=True, decode=True):
+            if 'errorDetail' in line:
+                raise Exception(line['errorDetail']['message'])
             logger.debug(line)
 
     if 'inputs' not in step and 'commands' not in step:
