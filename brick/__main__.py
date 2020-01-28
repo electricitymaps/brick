@@ -115,7 +115,8 @@ def cli(verbose, recursive):
 
 @cli.command()
 @click.argument('target', default='.')
-def prepare(target):
+@click.pass_context
+def prepare(ctx, target):
     if check_recursive(ctx, target, prepare):
         return
 
