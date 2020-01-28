@@ -177,13 +177,7 @@ def build(ctx, target):
         logger.debug(f'Found dependencies: {dependencies}')
         for dependency in dependencies:
             logger.info(f'➡️  Building dependency {dependency}')
-            # Also pass flags
-            flags = ' '.join([f'--{k}' for k, v in ctx.parent.params.items() if v])
-            subprocess.run(
-                f'brick {flags} build {os.path.join(ROOT_PATH, dependency)}',
-                shell=True,
-                check=True,
-            )
+            ctx.invoke(build, target=os.path.join(ROOT_PATH, dependency))
 
     # Expand inputs (globs etc..)
     # Note dependencies must be done pre-glob
