@@ -92,9 +92,20 @@ def generate_dockerfile_contents(from_image,
     return dockerfile_contents
 
 
+def check_recursive(ctx, target, fun):
+    if ctx.parent.params.get('recursive'):
+        targets = [os.path.dirname(x) for x in sorted(glob.glob(f'{target}/**/BUILD.yaml'))]
+        logger.info(f'Found {len(targets)} target(s)..')
+        for recursive_target in targets:
+            # Note: the recursive parameter will not be passed
+            # and thus the recursion will end here
+            ctx.invoke(fun, target=recursive_target)
+        return True
+
+
 @click.group()
 @click.option('--verbose', help='verbose', is_flag=True)
-@click.option('--recursive', help='recursive', is_flag=True)
+@click.option('-r', '--recursive', help='recursive', is_flag=True)
 def cli(verbose, recursive):
     if verbose:
         handler.setLevel(logging.DEBUG)
@@ -105,6 +116,9 @@ def cli(verbose, recursive):
 @cli.command()
 @click.argument('target', default='.')
 def prepare(target):
+    if check_recursive(ctx, target, prepare):
+        return
+
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -141,6 +155,9 @@ def prepare(target):
 @click.argument('target', default='.')
 @click.pass_context
 def build(ctx, target):
+    if check_recursive(ctx, target, build):
+        return
+
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -223,6 +240,9 @@ def build(ctx, target):
 @click.argument('target', default='.')
 @click.pass_context
 def test(ctx, target):
+    if check_recursive(ctx, target, test):
+        return
+
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -257,6 +277,9 @@ def test(ctx, target):
 @click.argument('target', default='.')
 @click.pass_context
 def deploy(ctx, target):
+    if check_recursive(ctx, target, deploy):
+        return
+
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)

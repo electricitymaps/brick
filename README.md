@@ -9,6 +9,12 @@ Make sure you have docker installed, and then run:
 python3 setup.py install
 ```
 
+## Development
+```
+pip3 install -e .
+```
+This will create a symlink so you can develop and use the `brick` command.
+
 ## Usage
 First, create an empty WORKSPACE file at the root of your repo:
 ```
