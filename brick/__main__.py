@@ -94,7 +94,7 @@ def generate_dockerfile_contents(from_image,
 
 def check_recursive(ctx, target, fun):
     if ctx.parent.params.get('recursive'):
-        targets = [os.path.dirname(x) for x in sorted(glob.glob(f'{target}/**/BUILD.yaml'))]
+        targets = [os.path.dirname(x) for x in sorted(glob.glob(f'{target}/**/BUILD.yaml', recursive=True))]
         logger.info(f'Found {len(targets)} target(s)..')
         for recursive_target in targets:
             # Note: the recursive parameter will not be passed
