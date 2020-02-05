@@ -17,7 +17,7 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
         cmd += f' {" ".join([f"-v {os.path.abspath(v)}:/home/{os.path.relpath(v, ROOT_PATH)}" for v in volumes])}'
     if ports:
         cmd += f' {" ".join([f"-p {p}:{p}" for p in ports])}'
-    if ports:
+    if environment:
         cmd += f' {" ".join([f"-e {k}={v}" for k, v in environment.items()])}'
     cmd += f' {tag} {command}'
     exit(subprocess.run(cmd, shell=True).returncode)
