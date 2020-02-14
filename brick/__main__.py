@@ -135,6 +135,7 @@ def prepare(ctx, target):
     dockerfile_contents = generate_dockerfile_contents(
         from_image=step['image'], inputs=inputs,
         commands=step.get('commands', []),
+        environment=step.get('environment', {}),
         workdir=target_rel_path)
 
     # Docker build
@@ -191,6 +192,7 @@ def build(ctx, target):
         from_image=digest, inputs=inputs,
         commands=step.get('commands', []),
         entrypoint=step.get('entrypoint'),
+        environment=step.get('environment', {}),
         workdir=target_rel_path)
 
     # Docker build
