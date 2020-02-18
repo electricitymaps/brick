@@ -23,6 +23,7 @@ touch WORKSPACE
 
 Then, for each folder that you'd like to build/deploy, you can create a BUILD.yaml file that describes the dependencies and the build/deploy steps.
 Each step is cached and will only re-run if the commands change, or if the input change.
+`brick` automatically detects dependencies by searching for inputs intersecting outputs of another build, and triggers the apprioriate build dependencies as needed.
 
 This is an example of the configuration used to build the Tomorrow website to Github Pages:
 
@@ -67,3 +68,21 @@ steps:
 ```
 
 Note the deployment will only be triggered if any file declared as inputs changes, or if the deployment commands change.
+
+## Commands
+```
+Usage: brick [OPTIONS] COMMAND [ARGS]...
+
+Options:
+  --verbose        verbose
+  -r, --recursive  recursive
+  --help           Show this message and exit.
+
+Commands:
+  build
+  deploy
+  develop
+  prepare
+  prune
+  test
+```
