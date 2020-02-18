@@ -8,11 +8,12 @@ import shutil
 import subprocess
 import sys
 
+import arrow
 import click
 import docker
 import yaml
 
-from .dockerlib import docker_run, docker_build
+from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
 from .lib import expand_inputs, ROOT_PATH, intersecting_outputs
 from .logger import logger, handler
 
@@ -381,6 +382,31 @@ def develop(ctx, target):
 
     logger.info(f'👋 Finished developping {target_rel_path}')
     return digest
+
+
+@cli.command()
+@click.argument('target', default='.')
+@click.pass_context
+def prune(ctx, target):
+    if check_recursive(ctx, target, prune):
+        return
+
+    target_rel_path = os.path.relpath(target, start=ROOT_PATH)
+    with open(os.path.join(target, 'BUILD.yaml')) as f:
+        config = yaml.load(f, Loader=yaml.FullLoader)
+    steps = config['steps']
+    name = config['name']
+    for image in docker_images_list(
+        name,
+        last_tagged_before=arrow.utcnow().shift(days=-3)
+    ):
+        # If no tag contains `master` or `latest`,
+        # then this must be a branch build,
+        # and it can be considered for deletion
+        if any([':master' in t or ':latest' in t for t in image["tags"]]):
+            continue
+        logger.info(f'Deleting {image["tags"][0]} ({round(image["size"] / 1024 / 1024)}M)..')
+        docker_image_delete(image['id'], force=True)
 
 
 def entrypoint():
