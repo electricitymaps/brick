@@ -1,3 +1,4 @@
+import arrow
 import os
 import tempfile
 import subprocess
@@ -99,3 +100,19 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
             tag=version)
 
     return tags[-1]
+
+
+def docker_images_list(name, last_tagged_before=None):
+    return [
+        {
+            "id": x.attrs["Id"],
+            "tags": x.tags,
+            "size": x.attrs["Size"],
+            "lastTagTime": x.attrs["Metadata"]["LastTagTime"],
+        }
+        for x in docker_client.images.list(f"{name}_*")
+        if not last_tagged_before or arrow.get(x.attrs["Metadata"]["LastTagTime"]) < arrow.get(last_tagged_before)]
+
+
+def docker_image_delete(image_id, force=False):
+    docker_client.images.remove(image=image_id, noprune=False, force=force)
