@@ -404,6 +404,7 @@ def prune(ctx, target):
         # then this must be a branch build,
         # and it can be considered for deletion
         if any([':master' in t or ':latest' in t for t in image["tags"]]):
+            logger.info(f'Skipping {image["tags"][0]}..')
             continue
         logger.info(f'Deleting {image["tags"][0]} ({round(image["size"] / 1024 / 1024)}M)..')
         docker_image_delete(image['id'], force=True)
