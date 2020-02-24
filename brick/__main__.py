@@ -47,7 +47,8 @@ def generate_dockerfile_contents(from_image,
                                  pass_ssh=False,
                                  secrets=None,
                                  environment=None):
-    dockerfile_contents = f"FROM {from_image}\n"
+    dockerfile_contents = '# syntax = docker/dockerfile:experimental\n'
+    dockerfile_contents += f"FROM {from_image}\n"
     if inputs_from_build:
         dockerfile_contents += '\n'.join(
             [f"COPY --from={x[0]} /home/{x[1]} /home/{x[1]}"
@@ -61,6 +62,8 @@ def generate_dockerfile_contents(from_image,
     for k, v in (secrets or {}).items():
         # run_flags += [f'--mount=type=secret,id={k},target={v["target"]},required']
         # Use the tar file passed instead
+        # Note: One could use --mount-type=bind if the secrets
+        # were placed in the build context
         run_flags += [f'--mount=type=secret,id={k},target={v["target"]}.tar.gz,required']
 
     for k, v in (environment or {}).items():
