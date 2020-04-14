@@ -33,7 +33,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
         dockerfile.write(dockerfile_contents)
     try:
         iidfile = tempfile.mktemp()
-        cmd = f'docker -v build . --iidfile {iidfile} -f {dockerfile_path}'
+        cmd = f'docker build . --iidfile {iidfile} -f {dockerfile_path}'
         env = {'DOCKER_BUILDKIT': '1'}
         if pass_ssh:
             cmd += ' --ssh default'
