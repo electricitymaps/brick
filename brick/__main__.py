@@ -38,6 +38,10 @@ def add_version_to_tag(name):
     ]
 
 
+def get_name(target_rel_path):
+    return target_rel_path.replace('/', '_')
+
+
 def generate_dockerfile_contents(from_image,
                                  inputs,
                                  commands,
@@ -128,7 +132,7 @@ def prepare(ctx, target):
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     steps = config['steps']
-    name = config['name']
+    name = get_name(target_rel_path)
 
     if 'prepare' not in steps:
         logger.info('Nothing to prepare')
@@ -168,7 +172,7 @@ def build(ctx, target):
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     steps = config['steps']
-    name = config['name']
+    name = get_name(target_rel_path)
 
     # Make sure to run the previous step
     digest = ctx.invoke(prepare, target=target)
@@ -248,7 +252,7 @@ def test(ctx, target):
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     steps = config['steps']
-    name = config['name']
+    name = get_name(target_rel_path)
 
     if 'test' not in steps:
         logger.info('Nothing to test')
@@ -285,7 +289,7 @@ def deploy(ctx, target):
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     steps = config['steps']
-    name = config['name']
+    name = get_name(target_rel_path)
 
     if 'deploy' not in steps:
         logger.info('Nothing to deploy')
@@ -354,7 +358,7 @@ def develop(ctx, target):
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     steps = config['steps']
-    name = config['name']
+    name = get_name(target_rel_path)
 
     # Make sure to run the previous step
     digest = ctx.invoke(prepare, target=target)
@@ -398,7 +402,7 @@ def prune(ctx, target):
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
     steps = config['steps']
-    name = config['name']
+    name = get_name(target_rel_path)
     for image in docker_images_list(
         name,
         last_tagged_before=arrow.utcnow().shift(days=-3)
