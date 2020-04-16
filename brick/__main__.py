@@ -37,7 +37,7 @@ IMAGES_TO_YARN_CACHE_VERSION_DICT = {
     "node:12.13.1": "v6",
 }
 
-def is_install_command(cmd):
+def is_yarn_install_command(cmd):
     install_commands = ['yarn', 'yarn install']
     # Strip flags and trim the string
     split = cmd.split('--')
@@ -94,7 +94,7 @@ def generate_dockerfile_contents(from_image,
 
     def generate_run_command(cmd, run_flags):
         cache_version = IMAGES_TO_YARN_CACHE_VERSION_DICT.get(from_image)
-        if is_install_command(cmd) and cache_version:
+        if is_yarn_install_command(cmd) and cache_version:
             location = f'{YARN_CACHE_LOCATION}/{cache_version}'
             logger.debug(f'Using yarn cache located at {location}')
             run_flags += [f'--mount=type=cache,target={location}']
