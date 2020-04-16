@@ -25,10 +25,25 @@ GIT_BRANCH = subprocess.check_output(
     "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
     r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n')
 
-IMAGES_TO_YARN_CACHE_LOCATION_DICT = {
-    "node:10.19.0-alpine": "/usr/local/share/.cache/yarn/v6",
-    "node:10.13": "/usr/local/share/.cache/yarn/v2"
+YARN_CACHE_LOCATION = "/usr/local/share/.cache/yarn"
+IMAGES_TO_YARN_CACHE_VERSION_DICT = {
+    "node:8.11": "v1",
+    "node:8.14.0": "v4",
+    "node:10.3": "v1",
+    "node:10.13": "v2",
+    "node:10.13.0": "v2",
+    "node:10.15.3": "v4",
+    "node:10.19.0-alpine": "v6",
+    "node:12.13.1": "v6",
 }
+
+def is_yarn_install_command(cmd):
+    install_commands = ['yarn', 'yarn install']
+    # Strip flags and trim the string
+    split = cmd.split('--')
+    clean_command = split[0].strip()
+    return clean_command in install_commands
+
 
 def compute_tags(name, step_name):
     return add_version_to_tag(f'{name}_{step_name}')
@@ -78,8 +93,10 @@ def generate_dockerfile_contents(from_image,
         dockerfile_contents += f"ENV {k}={v}\n"
 
     def generate_run_command(cmd, run_flags):
-        location = IMAGES_TO_YARN_CACHE_LOCATION_DICT.get(from_image)
-        if cmd == 'yarn' and location:
+        cache_version = IMAGES_TO_YARN_CACHE_VERSION_DICT.get(from_image)
+        if is_yarn_install_command(cmd) and cache_version:
+            location = f'{YARN_CACHE_LOCATION}/{cache_version}'
+            logger.debug(f'Using yarn cache located at {location}')
             run_flags += [f'--mount=type=cache,target={location}']
         if (secrets or {}).items():
             # Wrap the run command with a tar command
