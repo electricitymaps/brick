@@ -25,6 +25,10 @@ GIT_BRANCH = subprocess.check_output(
     "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
     r"sed 's/\//\-/' | sed 's/ *//g'", shell=True, encoding='utf8').rstrip('\n')
 
+IMAGES_TO_YARN_CACHE_LOCATION_DICT = {
+    "node:10.19.0-alpine": "/usr/local/share/.cache/yarn/v6",
+    "node:10.13": "/usr/local/share/.cache/yarn/v2"
+}
 
 def compute_tags(name, step_name):
     return add_version_to_tag(f'{name}_{step_name}')
@@ -73,7 +77,10 @@ def generate_dockerfile_contents(from_image,
     for k, v in (environment or {}).items():
         dockerfile_contents += f"ENV {k}={v}\n"
 
-    def generate_run_command(cmd):
+    def generate_run_command(cmd, run_flags):
+        location = IMAGES_TO_YARN_CACHE_LOCATION_DICT.get(from_image)
+        if cmd == 'yarn' and location:
+            run_flags += [f'--mount=type=cache,target={location}']
         if (secrets or {}).items():
             # Wrap the run command with a tar command
             # to untar and cleanup after us
@@ -91,7 +98,7 @@ def generate_dockerfile_contents(from_image,
         else:
             return f"RUN {' '.join(run_flags + [cmd])}"
 
-    dockerfile_contents += '\n'.join([generate_run_command(cmd)
+    dockerfile_contents += '\n'.join([generate_run_command(cmd, run_flags)
                                       for cmd in commands]) + '\n'
     # Add entrypoint
     if entrypoint:
