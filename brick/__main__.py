@@ -135,10 +135,24 @@ def check_recursive(ctx, target, fun):
         return True
 
 
+
+def is_ci(ctx):
+    if ctx.parent.params.get('ci'):
+        logger.debug(f'Running in CI mode, skipping build step!') 
+        return True
+
+def image_exists(tag):
+    try:
+        image = docker_client.images.get(tag)
+        return True
+    except docker.errors.ImageNotFound:
+        return False
+
 @click.group()
+@click.option('--ci', help='CI', is_flag=True)
 @click.option('--verbose', help='verbose', is_flag=True)
 @click.option('-r', '--recursive', help='recursive', is_flag=True)
-def cli(verbose, recursive):
+def cli(verbose, recursive, ci):
     if verbose:
         handler.setLevel(logging.DEBUG)
     else:
@@ -282,8 +296,10 @@ def test(ctx, target):
         logger.info('Nothing to test')
         return
 
-    # Make sure to run the previous step
-    build_tag = ctx.invoke(build, target=target)
+    build_tag = compute_tags(name, 'build')[-1]
+    should_run_build = not is_ci(ctx) or not image_exists(build_tag)
+    if should_run_build:
+        build_tag = ctx.invoke(build, target=target)
 
     step = steps['test']
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
@@ -321,11 +337,18 @@ def deploy(ctx, target):
 
     step = steps['deploy']
 
-    # Make sure to run the previous step
+
+    # Check if it should run previous step
     if 'test' in steps:
-        previous_tag = ctx.invoke(test, target=target)
+        previous_tag = compute_tags(name, 'test')[-1]
+        should_run_test = not is_ci(ctx) or not image_exists(previous_tag)
+        if should_run_test:
+            previous_tag = ctx.invoke(test, target=target)
     elif 'build' in steps:
-        previous_tag = ctx.invoke(build, target=target)
+        previous_tag = compute_tags(name, 'build')[-1]
+        should_run_build = not is_ci(ctx) or not image_exists(previous_tag)
+        if should_run_build:
+            previous_tag = ctx.invoke(build, target=target)
     else:
         raise Exception('Could not detect previous step')
 
