@@ -258,7 +258,7 @@ def build(ctx, target):
         }
         # Verify integrity before running
         docker_client.containers.run(
-            image=digest, auto_remove=True, volumes=volumes,
+            image=digest, remove=True, volumes=volumes,
             command=f'mv {container_path} {mounted_container_path}')
 
     logger.info(f'💯 Finished building {target_rel_path}!')
