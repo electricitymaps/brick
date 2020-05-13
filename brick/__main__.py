@@ -136,9 +136,9 @@ def check_recursive(ctx, target, fun):
 
 
 
-def is_ci(ctx):
-    if ctx.parent.params.get('ci'):
-        logger.debug(f'Running in CI mode, skipping build step!') 
+def skip_steps(ctx):
+    if ctx.parent.params.get('skip_previous_steps'):
+        logger.info(f'⚡️ Skipping previous steps!') 
         return True
 
 def image_exists(tag):
@@ -149,10 +149,10 @@ def image_exists(tag):
         return False
 
 @click.group()
-@click.option('--ci', help='CI', is_flag=True)
+@click.option('--skip-previous-steps', help='skips previous steps', is_flag=True)
 @click.option('--verbose', help='verbose', is_flag=True)
 @click.option('-r', '--recursive', help='recursive', is_flag=True)
-def cli(verbose, recursive, ci):
+def cli(verbose, recursive, skip_previous_steps):
     if verbose:
         handler.setLevel(logging.DEBUG)
     else:
@@ -297,7 +297,7 @@ def test(ctx, target):
         return
 
     build_tag = compute_tags(name, 'build')[-1]
-    should_run_build = not is_ci(ctx) or not image_exists(build_tag)
+    should_run_build = not skip_steps(ctx) or not image_exists(build_tag)
     if should_run_build:
         build_tag = ctx.invoke(build, target=target)
 
@@ -341,12 +341,12 @@ def deploy(ctx, target):
     # Check if it should run previous step
     if 'test' in steps:
         previous_tag = compute_tags(name, 'test')[-1]
-        should_run_test = not is_ci(ctx) or not image_exists(previous_tag)
+        should_run_test = not skip_steps(ctx) or not image_exists(previous_tag)
         if should_run_test:
             previous_tag = ctx.invoke(test, target=target)
     elif 'build' in steps:
         previous_tag = compute_tags(name, 'build')[-1]
-        should_run_build = not is_ci(ctx) or not image_exists(previous_tag)
+        should_run_build = not skip_steps(ctx) or not image_exists(previous_tag)
         if should_run_build:
             previous_tag = ctx.invoke(build, target=target)
     else:
@@ -426,7 +426,7 @@ def develop(ctx, target):
     environment = step.get('environment')
 
     # Docker run
-    logger.info(f'🔨 Developping {target_rel_path}..')
+    logger.info(f'🔨 Developing {target_rel_path}..')
     docker_run(
         tag=digest,
         command=command,
@@ -434,7 +434,7 @@ def develop(ctx, target):
         ports=ports,
         environment=environment)
 
-    logger.info(f'👋 Finished developping {target_rel_path}')
+    logger.info(f'👋 Finished developing {target_rel_path}')
     return digest
 
 
