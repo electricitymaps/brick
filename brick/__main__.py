@@ -135,10 +135,24 @@ def check_recursive(ctx, target, fun):
         return True
 
 
+
+def skip_steps(ctx):
+    if ctx.parent.params.get('skip_previous_steps'):
+        logger.debug(f'Skipping previous steps if possible..') 
+        return True
+
+def image_exists(tag):
+    try:
+        image = docker_client.images.get(tag)
+        return True
+    except docker.errors.ImageNotFound:
+        return False
+
 @click.group()
+@click.option('--skip-previous-steps', help='skips previous steps', is_flag=True)
 @click.option('--verbose', help='verbose', is_flag=True)
 @click.option('-r', '--recursive', help='recursive', is_flag=True)
-def cli(verbose, recursive):
+def cli(verbose, recursive, skip_previous_steps):
     if verbose:
         handler.setLevel(logging.DEBUG)
     else:
@@ -282,8 +296,10 @@ def test(ctx, target):
         logger.info('Nothing to test')
         return
 
-    # Make sure to run the previous step
-    build_tag = ctx.invoke(build, target=target)
+    build_tag = compute_tags(name, 'build')[-1]
+    should_run_build = not skip_steps(ctx) or not image_exists(build_tag)
+    if should_run_build:
+        build_tag = ctx.invoke(build, target=target)
 
     step = steps['test']
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
@@ -321,11 +337,18 @@ def deploy(ctx, target):
 
     step = steps['deploy']
 
-    # Make sure to run the previous step
+
+    # Check if it should run previous step
     if 'test' in steps:
-        previous_tag = ctx.invoke(test, target=target)
+        previous_tag = compute_tags(name, 'test')[-1]
+        should_run_test = not skip_steps(ctx) or not image_exists(previous_tag)
+        if should_run_test:
+            previous_tag = ctx.invoke(test, target=target)
     elif 'build' in steps:
-        previous_tag = ctx.invoke(build, target=target)
+        previous_tag = compute_tags(name, 'build')[-1]
+        should_run_build = not skip_steps(ctx) or not image_exists(previous_tag)
+        if should_run_build:
+            previous_tag = ctx.invoke(build, target=target)
     else:
         raise Exception('Could not detect previous step')
 
@@ -403,7 +426,7 @@ def develop(ctx, target):
     environment = step.get('environment')
 
     # Docker run
-    logger.info(f'🔨 Developping {target_rel_path}..')
+    logger.info(f'🔨 Developing {target_rel_path}..')
     docker_run(
         tag=digest,
         command=command,
@@ -411,7 +434,7 @@ def develop(ctx, target):
         ports=ports,
         environment=environment)
 
-    logger.info(f'👋 Finished developping {target_rel_path}')
+    logger.info(f'👋 Finished developing {target_rel_path}')
     return digest
 
 
