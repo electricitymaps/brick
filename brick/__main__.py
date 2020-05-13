@@ -138,7 +138,7 @@ def check_recursive(ctx, target, fun):
 
 def skip_steps(ctx):
     if ctx.parent.params.get('skip_previous_steps'):
-        logger.info(f'⚡️ Skipping previous steps!') 
+        logger.debug(f'Skipping previous steps if possible..') 
         return True
 
 def image_exists(tag):
