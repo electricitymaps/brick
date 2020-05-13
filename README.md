@@ -4,19 +4,25 @@
 It uses docker (buildkit) as the build engine.
 
 ## Installation
+
 Make sure you have docker installed, and then run:
+
 ```
 python3 setup.py install
 ```
 
 ## Development
+
 ```
 pip3 install -e .
 ```
+
 This will create a symlink so you can develop and use the `brick` command.
 
 ## Usage
+
 First, create an empty WORKSPACE file at the root of your repo:
+
 ```
 touch WORKSPACE
 ```
@@ -31,9 +37,8 @@ This is an example of the configuration used to build the Tomorrow website to Gi
 name: www
 
 steps:
-
   prepare:
-    image: node:10.3  # This is a docker image that will be used (optional)
+    image: node:10.3 # This is a docker image that will be used (optional)
     commands:
       - yarn
     inputs:
@@ -70,13 +75,15 @@ steps:
 Note the deployment will only be triggered if any file declared as inputs changes, or if the deployment commands change.
 
 ## Commands
+
 ```
 Usage: brick [OPTIONS] COMMAND [ARGS]...
 
 Options:
-  --verbose        verbose
-  -r, --recursive  recursive
-  --help           Show this message and exit.
+  --verbose               verbose
+  -r, --recursive         recursive
+  --skip-previous-steps   skips previous steps (helpful if the prev. steps are running separately)
+  --help                  Show this message and exit.
 
 Commands:
   build
