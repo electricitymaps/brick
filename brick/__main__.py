@@ -1,23 +1,27 @@
 #!/usr/bin/env python3
 
-import glob
 import logging
 import tempfile
 import os
 import shutil
 import subprocess
 import sys
+import time
 
 import arrow
 import click
 import docker
 import yaml
+from wcmatch import wcmatch
 
 from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
 from .lib import expand_inputs, ROOT_PATH, intersecting_outputs
 from .logger import logger, handler
 
 docker_client = docker.from_env()
+
+# Folder exclude patterns separated by |. (e.g. 'node_modules|dist|whatever')
+GLOB_EXCLUDES = 'node_modules'
 
 # Discover git branch
 GIT_BRANCH = subprocess.check_output(
@@ -126,12 +130,15 @@ def generate_dockerfile_contents(from_image,
 
 def check_recursive(ctx, target, fun):
     if ctx.parent.params.get('recursive'):
-        targets = [os.path.dirname(x) for x in sorted(glob.glob(f'{target}/**/BUILD.yaml', recursive=True))]
+        start = time.perf_counter()
+        targets = [os.path.dirname(x) for x in sorted(wcmatch.WcMatch(f'{target}', 'BUILD.yaml', GLOB_EXCLUDES, flags=wcmatch.RECURSIVE).match())]
         logger.info(f'Found {len(targets)} target(s)..')
         for recursive_target in targets:
             # Note: the recursive parameter will not be passed
             # and thus the recursion will end here
             ctx.invoke(fun, target=recursive_target)
+        end = time.perf_counter()
+        logger.info(f'🌟 All targets finished in {round(end - start, 2)} seconds')
         return True
 
 
