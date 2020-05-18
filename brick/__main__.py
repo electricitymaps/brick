@@ -20,6 +20,9 @@ from .logger import logger, handler
 
 docker_client = docker.from_env()
 
+# Folder exclude patterns separated by |. (e.g. 'node_modules|dist|whatever')
+GLOB_EXCLUDES = 'node_modules'
+
 # Discover git branch
 GIT_BRANCH = subprocess.check_output(
     "git branch --contains `git rev-parse HEAD` | "
@@ -128,7 +131,7 @@ def generate_dockerfile_contents(from_image,
 def check_recursive(ctx, target, fun):
     if ctx.parent.params.get('recursive'):
         start = time.perf_counter()
-        targets = [os.path.dirname(x) for x in sorted(wcmatch.WcMatch(f'{target}', 'BUILD.yaml', 'node_modules', flags=wcmatch.RECURSIVE).match())]
+        targets = [os.path.dirname(x) for x in sorted(wcmatch.WcMatch(f'{target}', 'BUILD.yaml', GLOB_EXCLUDES, flags=wcmatch.RECURSIVE).match())]
         logger.info(f'Found {len(targets)} target(s)..')
         for recursive_target in targets:
             # Note: the recursive parameter will not be passed
