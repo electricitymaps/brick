@@ -136,17 +136,12 @@ def check_recursive(ctx, target, fun):
         for recursive_target in targets:
             # Note: the recursive parameter will not be passed
             # and thus the recursion will end here
-            ctx.invoke(fun, target=recursive_target)
+            ctx.invoke(fun, target=recursive_target, skip_previous_steps=ctx.parent.params.get('skip_previous_steps'))
         end = time.perf_counter()
         logger.info(f'🌟 All targets finished in {round(end - start, 2)} seconds')
         return True
 
 
-
-def skip_steps(ctx):
-    if ctx.parent.params.get('skip_previous_steps'):
-        logger.debug(f'Skipping previous steps if possible..') 
-        return True
 
 def image_exists(tag):
     try:
@@ -160,6 +155,9 @@ def image_exists(tag):
 @click.option('--verbose', help='verbose', is_flag=True)
 @click.option('-r', '--recursive', help='recursive', is_flag=True)
 def cli(verbose, recursive, skip_previous_steps):
+    if skip_previous_steps:
+        logger.debug(f'Skipping previous steps if possible..') 
+
     if verbose:
         handler.setLevel(logging.DEBUG)
     else:
@@ -168,8 +166,9 @@ def cli(verbose, recursive, skip_previous_steps):
 
 @cli.command()
 @click.argument('target', default='.')
+@click.argument('skip_previous_steps', default=False)
 @click.pass_context
-def prepare(ctx, target):
+def prepare(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, prepare):
         return
 
@@ -208,8 +207,9 @@ def prepare(ctx, target):
 
 @cli.command()
 @click.argument('target', default='.')
+@click.argument('skip_previous_steps', default=False)
 @click.pass_context
-def build(ctx, target):
+def build(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, build):
         return
 
@@ -219,8 +219,11 @@ def build(ctx, target):
     steps = config['steps']
     name = get_name(target_rel_path)
 
-    # Make sure to run the previous step
-    digest = ctx.invoke(prepare, target=target)
+    # Run the previous step if required
+    prepare_tag = compute_tags(name, 'prepare')[-1]
+    should_run_prepare = not skip_previous_steps or not image_exists(prepare_tag)
+    if should_run_prepare:
+        prepare_tag = ctx.invoke(prepare, target=target)
 
     step = steps['build']
     logger.info(f'🔨 Building {target_rel_path}..')
@@ -240,7 +243,7 @@ def build(ctx, target):
 
     # If no digest is given (because there's no build step)
     # use current image instead
-    digest = digest or step['image']
+    digest = prepare_tag or step['image']
     dockerfile_contents = generate_dockerfile_contents(
         from_image=digest, inputs=inputs,
         commands=step.get('commands', []),
@@ -288,8 +291,9 @@ def build(ctx, target):
 
 @cli.command()
 @click.argument('target', default='.')
+@click.argument('skip_previous_steps', default=False)
 @click.pass_context
-def test(ctx, target):
+def test(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, test):
         return
 
@@ -304,7 +308,7 @@ def test(ctx, target):
         return
 
     build_tag = compute_tags(name, 'build')[-1]
-    should_run_build = not skip_steps(ctx) or not image_exists(build_tag)
+    should_run_build = not skip_previous_steps or not image_exists(build_tag)
     if should_run_build:
         build_tag = ctx.invoke(build, target=target)
 
@@ -327,8 +331,9 @@ def test(ctx, target):
 
 @cli.command()
 @click.argument('target', default='.')
+@click.argument('skip_previous_steps', default=False)
 @click.pass_context
-def deploy(ctx, target):
+def deploy(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, deploy):
         return
 
@@ -348,12 +353,12 @@ def deploy(ctx, target):
     # Check if it should run previous step
     if 'test' in steps:
         previous_tag = compute_tags(name, 'test')[-1]
-        should_run_test = not skip_steps(ctx) or not image_exists(previous_tag)
+        should_run_test = not skip_previous_steps or not image_exists(previous_tag)
         if should_run_test:
             previous_tag = ctx.invoke(test, target=target)
     elif 'build' in steps:
         previous_tag = compute_tags(name, 'build')[-1]
-        should_run_build = not skip_steps(ctx) or not image_exists(previous_tag)
+        should_run_build = not skip_previous_steps or not image_exists(previous_tag)
         if should_run_build:
             previous_tag = ctx.invoke(build, target=target)
     else:
