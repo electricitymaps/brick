@@ -93,3 +93,7 @@ Commands:
   prune
   test
 ```
+
+## Known Issues
+
+* **`brick build` doesn't provide full Docker steps output** - this issue might appear for some versions of Docker but it shouldn't be there on the version `19.03.4` (see [#35](https://github.com/tmrowco/brick/issues/35) for more context); the ultimate cause might be a bug with [docker-py](https://github.com/docker/docker-py)
