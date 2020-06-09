@@ -50,7 +50,7 @@ def is_yarn_install_command(cmd):
 
 
 timings = []
-cyan = "\x1b[96;21m"
+cyan = "\x1b[36;21m"
 green = "\x1b[32;21m"
 yellow = "\x1b[33;21m"
 red = "\x1b[31;21m"
