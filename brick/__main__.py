@@ -49,6 +49,19 @@ def is_yarn_install_command(cmd):
     return clean_command in install_commands
 
 
+timings = []
+cyan = "\x1b[96;21m"
+green = "\x1b[32;21m"
+yellow = "\x1b[33;21m"
+red = "\x1b[31;21m"
+reset = "\x1b[0m"
+def log_exec_time(task, target, start):
+    end = time.perf_counter()
+    duration = round(end - start, 2)
+    duration_color = red if duration > 10 else green
+    text = f'  {duration_color}{duration}s{reset} - {cyan}{task}{reset} of {yellow}{target}{reset}'
+    timings.append(text)
+
 def compute_tags(name, step_name):
     return add_version_to_tag(f'{name}_{step_name}')
 
@@ -139,6 +152,10 @@ def check_recursive(ctx, target, fun):
             ctx.invoke(fun, target=recursive_target, skip_previous_steps=ctx.parent.params.get('skip_previous_steps'))
         end = time.perf_counter()
         logger.info(f'🌟 All targets finished in {round(end - start, 2)} seconds')
+        logger.info('Detailed timing:')
+        for timing in timings:
+            logger.info(timing)
+
         return True
 
 
@@ -172,6 +189,7 @@ def prepare(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, prepare):
         return
 
+    start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -201,6 +219,7 @@ def prepare(ctx, target, skip_previous_steps):
         tags=tags,
         dockerfile_contents=dockerfile_contents)
     logger.info(f'💯 Preparation phase done!')
+    log_exec_time('prepare', target_rel_path, start_time)
     # TODO: For some reason, buildkit doesn't support FROM with digests
     return digest
 
@@ -213,6 +232,7 @@ def build(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, build):
         return
 
+    start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -286,6 +306,7 @@ def build(ctx, target, skip_previous_steps):
             command=f'mv {container_path} {mounted_container_path}')
 
     logger.info(f'💯 Finished building {target_rel_path}!')
+    log_exec_time('build', target_rel_path, start_time)
     return digest
 
 
@@ -297,6 +318,7 @@ def test(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, test):
         return
 
+    start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -326,6 +348,7 @@ def test(ctx, target, skip_previous_steps):
         tags=compute_tags(name, 'test'),
         dockerfile_contents=dockerfile_contents)
     logger.info(f'✅ Tests passed!')
+    log_exec_time('test', target_rel_path, start_time)
     return digest
 
 
@@ -457,6 +480,7 @@ def prune(ctx, target):
     if check_recursive(ctx, target, prune):
         return
 
+    start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     with open(os.path.join(target, 'BUILD.yaml')) as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
@@ -475,6 +499,7 @@ def prune(ctx, target):
         logger.info(f'Deleting {image["tags"][0]} ({round(image["size"] / 1024 / 1024)}M)..')
         docker_image_delete(image['id'], force=True)
 
+    log_exec_time('prune', target_rel_path, start_time)
 
 def entrypoint():
     cli()  # pylint: disable=no-value-for-parameter
