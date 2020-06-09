@@ -475,8 +475,9 @@ def develop(ctx, target):
 
 @cli.command()
 @click.argument('target', default='.')
+@click.argument('skip_previous_steps', default=False)
 @click.pass_context
-def prune(ctx, target):
+def prune(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, prune):
         return
 
