@@ -25,7 +25,8 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
 
 
 def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None):
-    dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
+    name = tags[1].split(":")[0].strip()
+    dockerfile_path = os.path.join(ROOT_PATH, f'.brickdockerfile_{name}')
     if os.path.exists(dockerfile_path):
         logger.warn(f'{dockerfile_path} already exists at root of workspace')
         os.remove(dockerfile_path)
