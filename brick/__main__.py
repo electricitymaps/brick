@@ -185,6 +185,15 @@ def cli(verbose, recursive, skip_previous_steps):
 @click.argument('target', default='.')
 @click.argument('skip_previous_steps', default=False)
 @click.pass_context
+def ls(ctx, target, skip_previous_steps):
+    targets = [os.path.dirname(x) for x in sorted(wcmatch.WcMatch(f'{target}', 'BUILD.yaml', GLOB_EXCLUDES, flags=wcmatch.RECURSIVE).match())]
+    logger.info(f'Got {len(targets)} target(s)..')
+    logger.info(targets)
+
+@cli.command()
+@click.argument('target', default='.')
+@click.argument('skip_previous_steps', default=False)
+@click.pass_context
 def prepare(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, prepare):
         return
@@ -330,6 +339,9 @@ def test(ctx, target, skip_previous_steps):
         return
 
     build_tag = compute_tags(name, 'build')[-1]
+    logger.debug('Checking if we can skip "build" step:')
+    logger.debug(build_tag)
+    logger.debug(image_exists(build_tag))
     should_run_build = not skip_previous_steps or not image_exists(build_tag)
     if should_run_build:
         build_tag = ctx.invoke(build, target=target)
