@@ -30,6 +30,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
     if os.path.exists(dockerfile_path):
         logger.warn(f'{dockerfile_path} already exists at root of workspace')
         os.remove(dockerfile_path)
+    logger.info(dockerfile_contents)
     with open(dockerfile_path, 'w+') as dockerfile:
         dockerfile.write(dockerfile_contents)
     try:
