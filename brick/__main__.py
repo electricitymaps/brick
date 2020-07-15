@@ -14,7 +14,7 @@ import docker
 import yaml
 from wcmatch import wcmatch
 
-from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
+from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete, docker_image_get
 from .lib import expand_inputs, ROOT_PATH, intersecting_outputs
 from .logger import logger, handler
 
@@ -261,6 +261,11 @@ def build(ctx, target, skip_previous_steps):
     # as else globs might return nothing (if they have not been built)
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
 
+    # Save the current id for logging
+    old_build_tag = compute_tags(name, 'build')[-1]
+    old_build_id = docker_image_get(old_build_tag)
+
+
     # If no digest is given (because there's no build step)
     # use current image instead
     digest = prepare_tag or step['image']
@@ -276,7 +281,14 @@ def build(ctx, target, skip_previous_steps):
     digest = docker_build(
         tags=tags,
         dockerfile_contents=dockerfile_contents)
+    # Save the new id for logging
+    new_build_tag = compute_tags(name, 'build')[-1]
+    new_build_id = docker_image_get(new_build_tag)
 
+    if old_build_id != new_build_id:
+        logger.info("-- Image was changed!")
+        logger.info(f"-- Old image id: '{old_build_id}'")
+        logger.info(f"-- New image id: '{new_build_id}'")
     # Gather output
     logger.info('Collecting outputs..')
     for output in step.get('outputs', []):

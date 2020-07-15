@@ -116,3 +116,10 @@ def docker_images_list(name, last_tagged_before=None):
 
 def docker_image_delete(image_id, force=False):
     docker_client.images.remove(image=image_id, noprune=False, force=force)
+
+
+def docker_image_get(image_name):
+    try:
+        return docker_client.images.get(name=image_name).id
+    except:
+        return None
