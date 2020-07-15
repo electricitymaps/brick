@@ -278,7 +278,6 @@ def build(ctx, target, skip_previous_steps):
         dockerfile_contents=dockerfile_contents)
 
     # Gather output
-    logger.info('Collecting outputs..')
     for output in step.get('outputs', []):
         logger.debug(f'Collecting {os.path.join(target_rel_path, output)}..')
         # Make sure we check that outputs are in this folder,
