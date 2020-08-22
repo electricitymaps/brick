@@ -3,6 +3,7 @@ import os
 import tempfile
 import subprocess
 import sys
+from typing import Tuple, List
 
 import docker
 
@@ -10,6 +11,36 @@ from .lib import ROOT_PATH
 from .logger import logger
 
 docker_client = docker.from_env()
+
+
+def is_built_up_to_date(tag: str, dependency_paths: List[str]) -> bool:
+    """
+    Verifies if the given image tag is newer than all relative paths.
+    """
+    if dependency_paths is None:
+        return False
+
+    inspect_result = subprocess.run(
+        f"docker inspect -f '{{{{ json .Metadata.LastTagTime }}}}' {tag}",
+        shell=True,
+        capture_output=True)
+
+    image_exists = inspect_result and inspect_result.returncode == 0
+
+    if not image_exists:
+        return False
+
+    # a Docker image exist, check if any of the dependencies were changed
+    image_created_at = arrow.get(inspect_result.stdout.strip().decode("utf-8"))
+
+    for rel_dependency_path in dependency_paths:
+        dependency_path = os.path.abspath(os.path.join(ROOT_PATH, rel_dependency_path))
+        dependency_modified_at = arrow.get(os.path.getmtime(dependency_path))
+        if (dependency_modified_at > image_created_at):
+            logger.debug(f'Docker build is required as {dependency_path} changed at {dependency_modified_at} and image {tag} was build at {image_created_at}')
+            return False
+
+    return True
 
 
 def docker_run(tag, command, volumes=None, ports=None, environment=None):
@@ -24,7 +55,13 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
     exit(subprocess.run(cmd, shell=True).returncode)
 
 
-def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None):
+def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None) -> str:
+    tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
+
+    if is_built_up_to_date(tag=tag_to_return, dependency_paths=dependency_paths):
+        logger.debug(f'Skipping docker build as image {tag_to_return} is never than inputs')
+        return tag_to_return
+
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
     if os.path.exists(dockerfile_path):
         logger.warn(f'{dockerfile_path} already exists at root of workspace')
@@ -99,7 +136,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
             repository=repository,
             tag=version)
 
-    return tags[-1]
+    return tag_to_return
 
 
 def docker_images_list(name, last_tagged_before=None):
