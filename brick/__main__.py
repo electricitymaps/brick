@@ -15,7 +15,7 @@ import yaml
 from wcmatch import wcmatch
 
 from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
-from .lib import expand_inputs, ROOT_PATH, intersecting_outputs
+from .lib import get_config, expand_inputs, ROOT_PATH, intersecting_outputs
 from .logger import logger, handler
 
 docker_client = docker.from_env()
@@ -191,8 +191,7 @@ def prepare(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -234,8 +233,7 @@ def build(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -319,8 +317,7 @@ def test(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -360,8 +357,7 @@ def deploy(ctx, target, skip_previous_steps):
         return
 
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -436,8 +432,7 @@ def deploy(ctx, target, skip_previous_steps):
 @click.pass_context
 def develop(ctx, target):
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -482,8 +477,7 @@ def prune(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
     for image in docker_images_list(

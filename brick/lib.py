@@ -74,3 +74,19 @@ def intersecting_outputs(target, inputs):
                             break
     return sorted(matches)
 
+
+def get_config_path(target):
+    return os.path.join(target, 'BUILD.yaml')
+
+
+def get_relative_config_path(target):
+    return os.path.relpath(get_config_path(target), start=ROOT_PATH)
+
+
+def get_config(target):
+    try:
+        with open(get_config_path(target)) as f:
+            # TODO: we could be basic sanity checking here
+            return yaml.load(f, Loader=yaml.FullLoader)
+    except FileNotFoundError:
+        raise Exception(f'BUILD.yaml not found.')
