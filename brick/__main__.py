@@ -17,7 +17,7 @@ import yaml
 from wcmatch import wcmatch
 
 from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
-from .lib import get_config, expand_inputs, ROOT_PATH, intersecting_outputs
+from .lib import get_config, get_relative_config_path, expand_inputs, ROOT_PATH, intersecting_outputs
 from .logger import logger, handler
 
 docker_client = docker.from_env()
@@ -203,6 +203,7 @@ def prepare(ctx, target, skip_previous_steps):
 
     step = steps['prepare']
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
+    dependency_paths = inputs + [get_relative_config_path(target)]
     dockerfile_contents = generate_dockerfile_contents(
         from_image=step['image'], inputs=inputs,
         commands=step.get('commands', []),
@@ -214,6 +215,7 @@ def prepare(ctx, target, skip_previous_steps):
     tags = compute_tags(name, 'prepare')
     digest = docker_build(
         tags=tags,
+        dependency_paths=dependency_paths,
         dockerfile_contents=dockerfile_contents)
     logger.info(f'💯 Preparation phase done!')
     log_exec_time('prepare', target_rel_path, start_time)
@@ -256,6 +258,7 @@ def build(ctx, target, skip_previous_steps):
     # Note dependencies must be done pre-glob
     # as else globs might return nothing (if they have not been built)
     inputs = expand_inputs(target_rel_path, step.get('inputs', []))
+    dependency_paths = inputs + [get_relative_config_path(target)]
 
     # If no digest is given (because there's no build step)
     # use current image instead
@@ -271,6 +274,7 @@ def build(ctx, target, skip_previous_steps):
     tags = compute_tags(name, 'build') + add_version_to_tag(step.get('tag', name))
     digest = docker_build(
         tags=tags,
+        dependency_paths=dependency_paths,
         dockerfile_contents=dockerfile_contents)
 
     # TODO: We could skip gathering the output if build did not run AND output folders are up to date
@@ -343,6 +347,7 @@ def test(ctx, target, skip_previous_steps):
     logger.info(f'🔍 Testing {target_rel_path}..')
     digest = docker_build(
         tags=compute_tags(name, 'test'),
+        dependency_paths=None, # always run tests
         dockerfile_contents=dockerfile_contents)
     logger.info(f'✅ Tests passed!')
     log_exec_time('test', target_rel_path, start_time)
@@ -420,9 +425,10 @@ def deploy(ctx, target, skip_previous_steps):
     # Docker build
     logger.info(f'🚀 Deploying {target_rel_path}..')
 
-    digest = docker_build(
+    docker_build(
         tags=compute_tags(name, 'deploy'),
         dockerfile_contents=dockerfile_contents,
+        dependency_paths=None, # always run deployment
         pass_ssh=step.get('pass_ssh', False),
         secrets=step.get('secrets'))
     logger.info(f'💯 Deploy finished!')
