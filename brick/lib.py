@@ -25,7 +25,7 @@ def expand_inputs(target, inputs):
             matches = glob.glob(os.path.join(ROOT_PATH, target, input_path), recursive=True)
             if not matches:
                 logger.debug(f'Could not find an match for {os.path.join(ROOT_PATH, target, input_path)}')
-                raise Exception(f'No matches found for input {input_path}')
+                raise Exception(f'No matches found for input {input_path} for target {target}')
             for g in matches:
                 # Paths should be relative to root
                 p = os.path.relpath(g, start=ROOT_PATH)
