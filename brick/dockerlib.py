@@ -2,12 +2,14 @@ import arrow
 import os
 import tempfile
 import subprocess
+from subprocess import PIPE
 import sys
 
 import docker
 
-from .lib import ROOT_PATH
+from .lib import ROOT_PATH, compute_hash_from_paths
 from .logger import logger
+from .cache import BuildCache
 
 docker_client = docker.from_env()
 
@@ -24,7 +26,17 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
     exit(subprocess.run(cmd, shell=True).returncode)
 
 
-def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None):
+def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None) -> str:
+    tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
+
+    dependency_hash = compute_hash_from_paths(dependency_paths) if dependency_paths else None
+    build_is_up_to_date = (
+        BuildCache.get_hash(tag_to_return) == dependency_hash if dependency_hash else False
+    )
+    if build_is_up_to_date:
+        logger.debug(f"Skipping docker build as image {tag_to_return} is up to date")
+        return tag_to_return
+
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
     if os.path.exists(dockerfile_path):
         logger.warn(f'{dockerfile_path} already exists at root of workspace')
@@ -92,14 +104,18 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
         digest = f.readline().split(":")[1].strip()
     os.remove(iidfile)
 
+    image = docker_client.images.get(digest)
     for tag in tags:
-        logger.debug(f"Tagging as {tag}..")
+        logger.debug(f"Tagging {tag}..")
         repository, version = tag.split(':')
-        docker_client.images.get(digest).tag(
+        image.tag(
             repository=repository,
             tag=version)
 
-    return tags[-1]
+    if dependency_hash:
+        BuildCache.save_build(tag=tag_to_return, dependency_hash=dependency_hash)
+
+    return tag_to_return
 
 
 def docker_images_list(name, last_tagged_before=None):
