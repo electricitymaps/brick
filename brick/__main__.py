@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 import time
+import io
+import tarfile
 
 import arrow
 import click
@@ -173,7 +175,7 @@ def image_exists(tag):
 @click.option('-r', '--recursive', help='recursive', is_flag=True)
 def cli(verbose, recursive, skip_previous_steps):
     if skip_previous_steps:
-        logger.debug(f'Skipping previous steps if possible..') 
+        logger.debug(f'Skipping previous steps if possible..')
 
     if verbose:
         handler.setLevel(logging.DEBUG)
@@ -275,6 +277,8 @@ def build(ctx, target, skip_previous_steps):
         tags=tags,
         dockerfile_contents=dockerfile_contents)
 
+    # TODO: We could skip gathering the output if build did not run AND output folders are up to date
+
     # Gather output
     for output in step.get('outputs', []):
         logger.debug(f'Collecting {os.path.join(target_rel_path, output)}..')
@@ -282,25 +286,26 @@ def build(ctx, target, skip_previous_steps):
         # as else the dependency system won't work
         if os.path.abspath(os.path.join(ROOT_PATH, target_rel_path)) not in os.path.abspath(os.path.join(ROOT_PATH, target_rel_path, output)):
             raise Exception(f'Output {output} is not in current folder')
-        # TODO: Use docker container cp instead
-        # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.Container.get_archive
+
         host_path = os.path.join(ROOT_PATH, target_rel_path, output)
         container_path = f'/home/{os.path.join(target_rel_path, output)}'
-        mounted_container_path = f'/mnt'
         if os.path.exists(host_path):
             if os.path.isdir(host_path):
                 shutil.rmtree(host_path)
             else:
                 os.remove(host_path)
-        volumes = {}
-        volumes[os.path.abspath(os.path.join(host_path, '..'))] = {
-            'bind': mounted_container_path,
-            'mode': 'rw'
-        }
-        # Verify integrity before running
-        docker_client.containers.run(
-            image=digest, remove=True, volumes=volumes,
-            command=f'mv {container_path} {mounted_container_path}')
+
+        # Pull out the outputs to the host
+        container = docker_client.containers.run(
+            image=digest, remove=True, detach=True)
+        archive_bits, stats = container.get_archive(container_path)
+        with io.BytesIO() as archive_tar_content:
+            for chunk in archive_bits:
+                archive_tar_content.write(chunk)
+            archive_tar_content.seek(0)
+            with tarfile.open(fileobj=archive_tar_content, mode='r:') as tar:
+                host_output_folder = os.path.abspath(os.path.join(host_path, '../'))
+                tar.extractall(host_output_folder)
 
     logger.info(f'💯 Finished building {target_rel_path}!')
     log_exec_time('build', target_rel_path, start_time)
