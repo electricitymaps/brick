@@ -17,7 +17,14 @@ python3 setup.py install
 pip3 install -e .
 ```
 
-This will create a symlink so you can develop and use the `brick` command.
+This will create a symlink so you can develop and use the `brick` command globally.
+
+A few other useful commands using a virtual environment:
+
+    make .venv  # setup virtual environment
+    make clean  # removes any generated files
+    make lint   # lints using Pylint
+
 
 ## Usage
 
