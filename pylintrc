@@ -156,7 +156,9 @@ disable=print-statement,
         line-too-long,
         too-many-locals,
         redefined-outer-name,
-        too-many-statements
+        too-many-statements,
+        # clashes with Black formatter
+        C0330, C0326
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option

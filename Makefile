@@ -1,8 +1,7 @@
 export PYTHONPATH=./brick
 VENV = .venv
-PY_FILES = $(shell find brick -type f -name '*.py')
-
-
+PY_FILES = $(shell find *.py brick -type f -name '*.py')
+BLACK_OPTIONS = --line-length=100 brick setup.py
 all: $(VENV)
 
 
@@ -19,6 +18,21 @@ lint: $(VENV) .lint.made
 
 pylint: lint
 
+
+
+format: $(VENV) .format.made
+
+.format.made: $(PY_FILES)
+	$(VENV)/bin/black $(BLACK_OPTIONS)
+	touch $@
+
+
+format-check:
+	$(VENV)/bin/black $(BLACK_OPTIONS) --check
+
+
+verify: format lint
+verify-ci: format-check lint
 
 
 $(VENV): $(VENV)/.made
