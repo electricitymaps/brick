@@ -1,7 +1,6 @@
 import glob
 import os
 import subprocess
-from subprocess import PIPE
 from typing import List
 
 import yaml

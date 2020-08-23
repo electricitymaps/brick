@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 
 import logging
-import tempfile
 import os
 import shutil
 import subprocess
-import sys
 import time
 import io
 import tarfile
@@ -13,7 +11,6 @@ import tarfile
 import arrow
 import click
 import docker
-import yaml
 from wcmatch import wcmatch
 
 from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
@@ -164,7 +161,7 @@ def check_recursive(ctx, target, fun):
 
 def image_exists(tag):
     try:
-        image = docker_client.images.get(tag)
+        docker_client.images.get(tag)
         return True
     except docker.errors.ImageNotFound:
         return False
@@ -298,7 +295,7 @@ def build(ctx, target, skip_previous_steps):
         # Pull out the outputs to the host
         container = docker_client.containers.run(
             image=digest, remove=True, detach=True)
-        archive_bits, stats = container.get_archive(container_path)
+        archive_bits, _stats = container.get_archive(container_path)
         with io.BytesIO() as archive_tar_content:
             for chunk in archive_bits:
                 archive_tar_content.write(chunk)
@@ -441,7 +438,6 @@ def develop(ctx, target):
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     config = get_config(target)
     steps = config['steps']
-    name = get_name(target_rel_path)
 
     # Make sure to run the previous step
     digest = ctx.invoke(prepare, target=target)
@@ -484,8 +480,6 @@ def prune(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    config = get_config(target)
-    steps = config['steps']
     name = get_name(target_rel_path)
     for image in docker_images_list(
         name,

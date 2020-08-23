@@ -1,11 +1,11 @@
-import arrow
 import os
 import tempfile
 import subprocess
-from subprocess import PIPE
 import sys
+
 from typing import List
 import docker
+import arrow
 
 from .lib import ROOT_PATH, compute_hash_from_paths
 from .logger import logger
@@ -22,14 +22,12 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
     if environment:
         cmd += f' {" ".join([f"-e {k}={v}" for k, v in environment.items()])}'
     cmd += f' {tag} {command}'
-    exit(subprocess.run(cmd, shell=True).returncode)
+    sys.exit(subprocess.run(cmd, shell=True, check=False).returncode)
 
 
 def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None) -> str:
+    # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
-
-    import time
-    start = time.perf_counter()
 
     # Optimization: Skip builds if the hash of dependencies did not change since the last build.
     # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1
@@ -46,7 +44,7 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
 
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
     if os.path.exists(dockerfile_path):
-        logger.warn(f'{dockerfile_path} already exists at root of workspace')
+        logger.warning(f'{dockerfile_path} already exists at root of workspace')
         os.remove(dockerfile_path)
     with open(dockerfile_path, 'w+') as dockerfile:
         dockerfile.write(dockerfile_contents)
@@ -92,10 +90,10 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
                 logger.debug(log)
             returncode = p.wait()
             if returncode:
-                out, err = p.communicate()
+                _out, err = p.communicate()
                 logger.error('\n'.join(logs))
                 logger.error(err)
-                exit(returncode)
+                sys.exit(returncode)
             os.remove(dockerfile_path)
     except (KeyboardInterrupt, SystemExit):
         os.remove(dockerfile_path)
