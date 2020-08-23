@@ -212,10 +212,6 @@ def prepare(ctx, target, skip_previous_steps):
     # Docker build
     logger.info(f'🔨 Preparing {target_rel_path}..')
     tags = compute_tags(name, 'prepare')
-    # TODO: When a PR is merged, `cache_from` will unfortunately not
-    # include the branch from which we're merging
-    # We're disabling it for now to see if Docker can handle caching on its own
-    # Ideally cache_from would not be needed? or could tage all tags matching {name}_prepare:* ??
     digest = docker_build(
         tags=tags,
         dockerfile_contents=dockerfile_contents)
