@@ -13,13 +13,9 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     url="https://github.com/tmrowco/brick",
     packages=setuptools.find_packages(),
-    classifiers=[
-        "Programming Language :: Python :: 3",
-    ],
-    python_requires='>=3.6',
-    entry_points={
-        'console_scripts': ['brick=brick.__main__:entrypoint']
-    },
+    classifiers=["Programming Language :: Python :: 3",],
+    python_requires=">=3.6",
+    entry_points={"console_scripts": ["brick=brick.__main__:entrypoint"]},
     install_requires=[
         'arrow==0.12.1',
         'braceexpand==0.1.2',
@@ -30,9 +26,5 @@ setuptools.setup(
         'yamllint==1.17.0',
         "wcmatch==6.0.1"
     ],
-    extras_require={
-        'dev': [
-            'pylint==2.6.0'
-        ]
-    }
+    extras_require={"dev": ["black==19.10b0", "pylint==2.6.0"]},
 )
