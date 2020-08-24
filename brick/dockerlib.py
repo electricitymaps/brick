@@ -2,6 +2,7 @@ import arrow
 import os
 import tempfile
 import subprocess
+from subprocess import PIPE
 import sys
 from typing import Tuple, List
 
@@ -23,7 +24,9 @@ def is_built_up_to_date(tag: str, dependency_paths: List[str]) -> bool:
     inspect_result = subprocess.run(
         f"docker inspect -f '{{{{ json .Metadata.LastTagTime }}}}' {tag}",
         shell=True,
-        capture_output=True)
+        check=False,
+        stdout=PIPE,
+        stderr=PIPE)
 
     image_exists = inspect_result and inspect_result.returncode == 0
 
