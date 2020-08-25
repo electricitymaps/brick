@@ -21,11 +21,13 @@ This will create a symlink so you can develop and use the `brick` command global
 
 A few other useful commands using a virtual environment:
 
-    make .venv  # setup virtual environment
-    make clean  # removes any generated files
-    make lint   # lints using Pylint
-    make format # formats using Black
-    make verify # runs all the above
+    make .venv      # setup virtual environment
+    make clean      # removes any generated files
+    make lint       # lints using Pylint
+    make format     # formats using Black
+    make typecheck  # mypy typechecking
+
+    make verify     # runs all the above
 
 
 ## Usage

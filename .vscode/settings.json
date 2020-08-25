@@ -10,5 +10,7 @@
   "[python]": {
     "editor.formatOnSave": true,
     "editor.formatOnPaste": false
-  }
+  },
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyPath": ".venv/bin/mypy"
 }

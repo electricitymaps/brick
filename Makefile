@@ -26,13 +26,18 @@ format: $(VENV) .format.made
 	$(VENV)/bin/black $(BLACK_OPTIONS)
 	touch $@
 
-
 format-check:
 	$(VENV)/bin/black $(BLACK_OPTIONS) --check
 
 
-verify: format lint
-verify-ci: format-check lint
+typecheck:
+	$(VENV)/bin/mypy brick
+
+
+
+verify: format lint typecheck
+verify-ci: format-check lint typecheck
+
 
 
 $(VENV): $(VENV)/.made
