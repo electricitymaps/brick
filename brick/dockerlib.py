@@ -9,6 +9,7 @@ import arrow
 
 from .lib import ROOT_PATH, compute_hash_from_paths
 from .logger import logger
+from .cache import BuildCache
 
 docker_client = docker.from_env()
 
@@ -122,6 +123,14 @@ def docker_build(
         logger.debug(f"Tagging {tag}..")
         repository, version = tag.split(":")
         image.tag(repository=repository, tag=version)
+
+    if dependency_hash:
+        dependency_hash_after_build = (
+            get_hash_of_dependencies(dependency_paths) if dependency_paths else None
+        )
+        BuildCache.save_hash(tag_to_return, dependency_hash)
+
+        assert dependency_hash_after_build == dependency_hash
 
     return tag_to_return
 

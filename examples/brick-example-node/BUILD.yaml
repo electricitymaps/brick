@@ -1,0 +1,16 @@
+steps:
+  prepare:
+    image: node:10.19.0-alpine
+    inputs:
+      - package.json
+    commands:
+      - yarn install
+
+  build:
+    commands:
+      - yarn test
+      - mkdir dist && node src/index.js > dist/out.txt
+    inputs:
+      - src
+    outputs:
+      - dist

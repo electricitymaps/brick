@@ -31,13 +31,15 @@ format-check:
 
 
 typecheck:
-	$(VENV)/bin/mypy brick
+	$(VENV)/bin/mypy brick tests
 
 
+test: $(VENV)
+	$(VENV)/bin/py.test -lsvv tests
 
-verify: format lint typecheck
-verify-ci: format-check lint typecheck
 
+verify: format lint typecheck test
+verify-ci: format-check lint typecheck test
 
 
 $(VENV): $(VENV)/.made

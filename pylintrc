@@ -144,6 +144,7 @@ disable=print-statement,
         logging-fstring-interpolation,
         f-string-without-interpolation,
         unused-argument,
+        missing-class-docstring,
         fixme,
         # disabled by tmrow (but should be looked at:)
         inconsistent-return-statements,

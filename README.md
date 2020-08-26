@@ -26,6 +26,7 @@ A few other useful commands using a virtual environment:
     make lint       # lints using Pylint
     make format     # formats using Black
     make typecheck  # mypy typechecking
+    make test       # pytest
 
     make verify     # runs all the above
 

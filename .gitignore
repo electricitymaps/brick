@@ -3,4 +3,6 @@ dist
 build
 __pycache__
 *.made
+.mypy_cache
+.pytest_cache
 .venv
