@@ -1,5 +1,8 @@
 import glob
 import os
+import subprocess
+from subprocess import PIPE
+from typing import List
 
 import yaml
 from braceexpand import braceexpand
@@ -73,6 +76,25 @@ def intersecting_outputs(target, inputs):
                             # Abort, found nothing
                             break
     return sorted(matches)
+
+
+def compute_hash_from_paths(paths: List[str]) -> str:
+    '''
+    Compute a single hash for all files contained in the relative paths
+    Inspiration: https://stackoverflow.com/a/545413
+    '''
+    if not paths:
+        raise ValueError("Expected input paths")
+    stdout = subprocess.run(
+        f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 sha1sum | sha1sum",
+        shell=True,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        cwd=ROOT_PATH).stdout
+    sha1_sum = stdout.decode("utf-8").split(" ")[0].strip()
+    assert len(sha1_sum) == 40, "expected sha1sum of length 40"
+    return sha1_sum
 
 
 def get_config_path(target):

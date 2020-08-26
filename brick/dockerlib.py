@@ -4,46 +4,14 @@ import tempfile
 import subprocess
 from subprocess import PIPE
 import sys
-from typing import Tuple, List
 
 import docker
 
-from .lib import ROOT_PATH
+from .lib import ROOT_PATH, compute_hash_from_paths
 from .logger import logger
+from .cache import BuildCache
 
 docker_client = docker.from_env()
-
-
-def is_built_up_to_date(tag: str, dependency_paths: List[str]) -> bool:
-    """
-    Verifies if the given image tag is newer than all relative paths.
-    """
-    if dependency_paths is None:
-        return False
-
-    inspect_result = subprocess.run(
-        f"docker inspect -f '{{{{ json .Metadata.LastTagTime }}}}' {tag}",
-        shell=True,
-        check=False,
-        stdout=PIPE,
-        stderr=PIPE)
-
-    image_exists = inspect_result and inspect_result.returncode == 0
-
-    if not image_exists:
-        return False
-
-    # a Docker image exist, check if any of the dependencies were changed
-    image_created_at = arrow.get(inspect_result.stdout.strip().decode("utf-8"))
-
-    for rel_dependency_path in dependency_paths:
-        dependency_path = os.path.abspath(os.path.join(ROOT_PATH, rel_dependency_path))
-        dependency_modified_at = arrow.get(os.path.getmtime(dependency_path))
-        if (dependency_modified_at > image_created_at):
-            logger.debug(f'Docker build is required as {dependency_path} changed at {dependency_modified_at} and image {tag} was build at {image_created_at}')
-            return False
-
-    return True
 
 
 def docker_run(tag, command, volumes=None, ports=None, environment=None):
@@ -61,8 +29,12 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
 def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None) -> str:
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
 
-    if is_built_up_to_date(tag=tag_to_return, dependency_paths=dependency_paths):
-        logger.debug(f'Skipping docker build as image {tag_to_return} is never than inputs')
+    dependency_hash = compute_hash_from_paths(dependency_paths) if dependency_paths else None
+    build_is_up_to_date = (
+        BuildCache.get_hash(tag_to_return) == dependency_hash if dependency_hash else False
+    )
+    if build_is_up_to_date:
+        logger.debug(f"Skipping docker build as image {tag_to_return} is up to date")
         return tag_to_return
 
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
@@ -132,12 +104,16 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
         digest = f.readline().split(":")[1].strip()
     os.remove(iidfile)
 
+    image = docker_client.images.get(digest)
     for tag in tags:
-        logger.debug(f"Tagging as {tag}..")
+        logger.debug(f"Tagging {tag}..")
         repository, version = tag.split(':')
-        docker_client.images.get(digest).tag(
+        image.tag(
             repository=repository,
             tag=version)
+
+    if dependency_hash:
+        BuildCache.save_build(tag=tag_to_return, dependency_hash=dependency_hash)
 
     return tag_to_return
 
