@@ -4,12 +4,11 @@ import tempfile
 import subprocess
 from subprocess import PIPE
 import sys
-
+from typing import List
 import docker
 
 from .lib import ROOT_PATH, compute_hash_from_paths
 from .logger import logger
-from .cache import BuildCache
 
 docker_client = docker.from_env()
 
@@ -29,13 +28,21 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
 def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None) -> str:
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
 
+    import time
+    start = time.perf_counter()
+
+    # Optimization: Skip builds if the hash of dependencies did not change since the last build.
+    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1
+    # second overhead for each image (steps: "resolve image config for" + "load metadata for").
+    # Performance example: When everything is cached this gives a 3.5X speedup locally for 38 targets. (180 to 52 seconds)
     dependency_hash = compute_hash_from_paths(dependency_paths) if dependency_paths else None
-    build_is_up_to_date = (
-        BuildCache.get_hash(tag_to_return) == dependency_hash if dependency_hash else False
-    )
-    if build_is_up_to_date:
-        logger.debug(f"Skipping docker build as image {tag_to_return} is up to date")
-        return tag_to_return
+    if dependency_hash:
+        dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
+        images = get_image_names_with_dependency_hash(dependency_hash)
+        images_are_up_to_date = set(tags).issubset(set(images))
+        if images_are_up_to_date:
+            logger.debug(f"Skipping docker build as images are up to date with input dependencies")
+            return tag_to_return
 
     dockerfile_path = os.path.join(ROOT_PATH, '.brickdockerfile')
     if os.path.exists(dockerfile_path):
@@ -112,9 +119,6 @@ def docker_build(tags, dockerfile_contents, pass_ssh=False, no_cache=False, secr
             repository=repository,
             tag=version)
 
-    if dependency_hash:
-        BuildCache.save_build(tag=tag_to_return, dependency_hash=dependency_hash)
-
     return tag_to_return
 
 
@@ -128,6 +132,17 @@ def docker_images_list(name, last_tagged_before=None):
         }
         for x in docker_client.images.list(f"{name}_*")
         if not last_tagged_before or arrow.get(x.attrs["Metadata"]["LastTagTime"]) < arrow.get(last_tagged_before)]
+
+
+def get_image_names_with_dependency_hash(dependency_hash) -> List[str]:
+    images = subprocess.run(
+        f"docker images --filter \"label=brick.dependency_hash={dependency_hash}\" --format '{{{{.Repository}}}}:{{{{.Tag}}}}'",
+        shell=True,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE).stdout.decode("utf-8").strip()
+
+    return images.split('\n')
 
 
 def docker_image_delete(image_id, force=False):
