@@ -86,6 +86,7 @@ def generate_dockerfile_contents(from_image,
                                  inputs_from_build=None,
                                  pass_ssh=False,
                                  secrets=None,
+                                 use_berglas=False,
                                  environment=None):
     dockerfile_contents = '# syntax = docker/dockerfile:experimental\n'
     dockerfile_contents += f"FROM {from_image}\n"
@@ -95,6 +96,9 @@ def generate_dockerfile_contents(from_image,
              for x in inputs_from_build]) + '\n'
     dockerfile_contents += '\n'.join([f'COPY ["{x}", "/home/{x}"]'
                                       for x in inputs]) + '\n'
+    if use_berglas:
+        dockerfile_contents += f"COPY --from=us-docker.pkg.dev/berglas/berglas/berglas:latest /bin/berglas /bin/berglas\n"
+
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
     run_flags = []
     if pass_ssh:
@@ -136,7 +140,10 @@ def generate_dockerfile_contents(from_image,
                                       for cmd in commands]) + '\n'
     # Add entrypoint
     if entrypoint:
-        dockerfile_contents += f'CMD {entrypoint}'
+        if use_berglas:
+            dockerfile_contents += f'ENTRYPOINT exec /bin/berglas exec -- {entrypoint}'
+        else:
+            dockerfile_contents += f'CMD {entrypoint}'
 
     return dockerfile_contents
 
@@ -269,6 +276,7 @@ def build(ctx, target, skip_previous_steps):
         commands=step.get('commands', []),
         entrypoint=step.get('entrypoint'),
         environment=step.get('environment', {}),
+        use_berglas=step.get('use_berglas', False),
         workdir=target_rel_path)
 
     # Docker build
