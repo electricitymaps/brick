@@ -25,7 +25,7 @@ def expand_inputs(target, inputs):
             matches = glob.glob(os.path.join(ROOT_PATH, target, input_path), recursive=True)
             if not matches:
                 logger.debug(f'Could not find an match for {os.path.join(ROOT_PATH, target, input_path)}')
-                raise Exception(f'No matches found for input {input_path}')
+                raise Exception(f'No matches found for input {input_path} for target {target}')
             for g in matches:
                 # Paths should be relative to root
                 p = os.path.relpath(g, start=ROOT_PATH)
@@ -74,3 +74,19 @@ def intersecting_outputs(target, inputs):
                             break
     return sorted(matches)
 
+
+def get_config_path(target):
+    return os.path.join(target, 'BUILD.yaml')
+
+
+def get_relative_config_path(target):
+    return os.path.relpath(get_config_path(target), start=ROOT_PATH)
+
+
+def get_config(target):
+    try:
+        with open(get_config_path(target)) as f:
+            # TODO: we could be basic sanity checking here
+            return yaml.load(f, Loader=yaml.FullLoader)
+    except FileNotFoundError:
+        raise Exception(f'BUILD.yaml not found.')

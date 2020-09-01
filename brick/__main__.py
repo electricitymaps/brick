@@ -7,6 +7,8 @@ import shutil
 import subprocess
 import sys
 import time
+import io
+import tarfile
 
 import arrow
 import click
@@ -15,7 +17,7 @@ import yaml
 from wcmatch import wcmatch
 
 from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
-from .lib import expand_inputs, ROOT_PATH, intersecting_outputs
+from .lib import get_config, expand_inputs, ROOT_PATH, intersecting_outputs
 from .logger import logger, handler
 
 docker_client = docker.from_env()
@@ -173,7 +175,7 @@ def image_exists(tag):
 @click.option('-r', '--recursive', help='recursive', is_flag=True)
 def cli(verbose, recursive, skip_previous_steps):
     if skip_previous_steps:
-        logger.debug(f'Skipping previous steps if possible..') 
+        logger.debug(f'Skipping previous steps if possible..')
 
     if verbose:
         handler.setLevel(logging.DEBUG)
@@ -191,8 +193,7 @@ def prepare(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -211,10 +212,6 @@ def prepare(ctx, target, skip_previous_steps):
     # Docker build
     logger.info(f'🔨 Preparing {target_rel_path}..')
     tags = compute_tags(name, 'prepare')
-    # TODO: When a PR is merged, `cache_from` will unfortunately not
-    # include the branch from which we're merging
-    # We're disabling it for now to see if Docker can handle caching on its own
-    # Ideally cache_from would not be needed? or could tage all tags matching {name}_prepare:* ??
     digest = docker_build(
         tags=tags,
         dockerfile_contents=dockerfile_contents)
@@ -234,8 +231,7 @@ def build(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -277,6 +273,8 @@ def build(ctx, target, skip_previous_steps):
         tags=tags,
         dockerfile_contents=dockerfile_contents)
 
+    # TODO: We could skip gathering the output if build did not run AND output folders are up to date
+
     # Gather output
     for output in step.get('outputs', []):
         logger.debug(f'Collecting {os.path.join(target_rel_path, output)}..')
@@ -284,25 +282,26 @@ def build(ctx, target, skip_previous_steps):
         # as else the dependency system won't work
         if os.path.abspath(os.path.join(ROOT_PATH, target_rel_path)) not in os.path.abspath(os.path.join(ROOT_PATH, target_rel_path, output)):
             raise Exception(f'Output {output} is not in current folder')
-        # TODO: Use docker container cp instead
-        # https://docker-py.readthedocs.io/en/stable/containers.html#docker.models.containers.Container.get_archive
+
         host_path = os.path.join(ROOT_PATH, target_rel_path, output)
         container_path = f'/home/{os.path.join(target_rel_path, output)}'
-        mounted_container_path = f'/mnt'
         if os.path.exists(host_path):
             if os.path.isdir(host_path):
                 shutil.rmtree(host_path)
             else:
                 os.remove(host_path)
-        volumes = {}
-        volumes[os.path.abspath(os.path.join(host_path, '..'))] = {
-            'bind': mounted_container_path,
-            'mode': 'rw'
-        }
-        # Verify integrity before running
-        docker_client.containers.run(
-            image=digest, remove=True, volumes=volumes,
-            command=f'mv {container_path} {mounted_container_path}')
+
+        # Pull out the outputs to the host
+        container = docker_client.containers.run(
+            image=digest, remove=True, detach=True)
+        archive_bits, stats = container.get_archive(container_path)
+        with io.BytesIO() as archive_tar_content:
+            for chunk in archive_bits:
+                archive_tar_content.write(chunk)
+            archive_tar_content.seek(0)
+            with tarfile.open(fileobj=archive_tar_content, mode='r:') as tar:
+                host_output_folder = os.path.abspath(os.path.join(host_path, '../'))
+                tar.extractall(host_output_folder)
 
     logger.info(f'💯 Finished building {target_rel_path}!')
     log_exec_time('build', target_rel_path, start_time)
@@ -319,8 +318,7 @@ def test(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -360,8 +358,7 @@ def deploy(ctx, target, skip_previous_steps):
         return
 
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -436,8 +433,7 @@ def deploy(ctx, target, skip_previous_steps):
 @click.pass_context
 def develop(ctx, target):
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
 
@@ -482,8 +478,7 @@ def prune(ctx, target, skip_previous_steps):
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
-    with open(os.path.join(target, 'BUILD.yaml')) as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+    config = get_config(target)
     steps = config['steps']
     name = get_name(target_rel_path)
     for image in docker_images_list(
