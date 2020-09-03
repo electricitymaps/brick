@@ -86,7 +86,7 @@ def compute_hash_from_paths(paths: List[str]) -> str:
     if not paths:
         raise ValueError("Expected input paths")
     stdout = subprocess.run(
-        f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 sha1sum | sha1sum",
+        f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 shasum | shasum",
         shell=True,
         check=True,
         stdout=subprocess.PIPE,
