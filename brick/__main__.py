@@ -100,8 +100,8 @@ def generate_dockerfile_contents(from_image,
                                       for x in inputs]) + '\n'
     # External images
     # https://docs.docker.com/develop/develop-images/multistage-build/#use-an-external-image-as-a-stage
-    if external_images:
-        dockerfile_contents += '\n'.join([f'COPY {x}\n' for x in external_images]) + '\n'
+    for k, v in (external_images or {}).items():
+        dockerfile_contents += f'COPY --from={v["tag"]} {v["src"]} {v["target"]}\n'
 
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
     run_flags = []
@@ -284,7 +284,7 @@ def build(ctx, target, skip_previous_steps):
         commands=step.get('commands', []),
         entrypoint=step.get('entrypoint'),
         environment=step.get('environment', {}),
-        external_images=step.get('external_images', []),
+        external_images=step.get('external_images'),
         workdir=target_rel_path)
 
     # Docker build
