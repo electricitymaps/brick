@@ -88,6 +88,7 @@ def generate_dockerfile_contents(from_image,
                                  inputs_from_build=None,
                                  pass_ssh=False,
                                  secrets=None,
+                                 external_images=None,
                                  environment=None):
     dockerfile_contents = '# syntax = docker/dockerfile:experimental\n'
     dockerfile_contents += f"FROM {from_image}\n"
@@ -97,6 +98,11 @@ def generate_dockerfile_contents(from_image,
              for x in inputs_from_build]) + '\n'
     dockerfile_contents += '\n'.join([f'COPY ["{x}", "/home/{x}"]'
                                       for x in inputs]) + '\n'
+    # External images
+    # https://docs.docker.com/develop/develop-images/multistage-build/#use-an-external-image-as-a-stage
+    for k, v in (external_images or {}).items():
+        dockerfile_contents += f'COPY --from={v["tag"]} {v["src"]} {v["target"]}\n'
+
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
     run_flags = []
     if pass_ssh:
@@ -181,6 +187,16 @@ def cli(verbose, recursive, skip_previous_steps):
         handler.setLevel(logging.DEBUG)
     else:
         handler.setLevel(logging.INFO)
+
+@cli.command()
+@click.argument('target', default='.')
+@click.pass_context
+def list(ctx, target):
+    targets = [os.path.dirname(x) for x in sorted(wcmatch.WcMatch(f'{target}', 'BUILD.yaml', GLOB_EXCLUDES, flags=wcmatch.RECURSIVE).match())]
+    logger.info(f'Found {len(targets)} target(s):')
+    for target in targets:
+        logger.info(target)
+
 
 
 @cli.command()
@@ -268,6 +284,7 @@ def build(ctx, target, skip_previous_steps):
         commands=step.get('commands', []),
         entrypoint=step.get('entrypoint'),
         environment=step.get('environment', {}),
+        external_images=step.get('external_images'),
         workdir=target_rel_path)
 
     # Docker build
