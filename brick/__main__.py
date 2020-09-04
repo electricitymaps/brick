@@ -185,14 +185,15 @@ def cli(verbose, recursive, skip_previous_steps):
     else:
         handler.setLevel(logging.INFO)
 
-@cli.command()
+
+@cli.command('list')  # NOTE: to not redefining built-in 'list'
 @click.argument('target', default='.')
 @click.pass_context
-def list(ctx, target):
+def list_(ctx, target):
     targets = [os.path.dirname(x) for x in sorted(wcmatch.WcMatch(f'{target}', 'BUILD.yaml', GLOB_EXCLUDES, flags=wcmatch.RECURSIVE).match())]
     logger.info(f'Found {len(targets)} target(s):')
-    for target in targets:
-        logger.info(target)
+    for t in targets:
+        logger.info(t)
 
 
 
