@@ -29,5 +29,10 @@ setuptools.setup(
         'typing-extensions==3.7.4.3',
         'yamllint==1.17.0',
         "wcmatch==6.0.1"
-    ]
+    ],
+    extras_require={
+        'dev': [
+            'pylint==2.6.0'
+        ]
+    }
 )
