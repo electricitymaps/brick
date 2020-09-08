@@ -1,7 +1,8 @@
 export PYTHONPATH=./brick
 VENV = .venv
 PY_FILES = $(shell find *.py brick -type f -name '*.py')
-BLACK_OPTIONS = brick setup.py
+# NOTE: we cannot currently use the pyproject.toml option as installation fails
+BLACK_OPTIONS = --target-version=py36 --line-length=100 brick setup.py
 all: $(VENV)
 
 
@@ -22,7 +23,7 @@ pylint: lint
 
 format: $(VENV) .format.made
 
-.format.made: $(PY_FILES) pyproject.toml
+.format.made: $(PY_FILES) Makefile
 	$(VENV)/bin/black $(BLACK_OPTIONS)
 	touch $@
 
