@@ -26,7 +26,7 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
 
 
 def docker_build(
-    tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None
+    tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
 ) -> str:
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
@@ -68,7 +68,7 @@ def docker_build(
             basename = os.path.basename(src)
             tarfile = os.path.join(ROOT_PATH, f"{basename}.tar.gz")
             subprocess.run(
-                f"tar zc -C {src} --exclude='logs' . > {tarfile}", shell=True, check=True
+                f"tar zc -C {src} --exclude='logs' . > {tarfile}", shell=True, check=True,
             )
             cmd += f" --secret id={k},src={tarfile}"
         with subprocess.Popen(
