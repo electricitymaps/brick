@@ -32,16 +32,23 @@ def docker_build(
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
 
     # Optimization: Skip builds if the hash of dependencies did not change since the last build.
-    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1
+    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1+
     # second overhead for each image (steps: "resolve image config for" + "load metadata for").
     # Performance example: When everything is cached this gives a 3.5X speedup locally for 38 targets. (180 to 52 seconds)
+    #                      On CI we go from 8 minutes to 3.5 minutes
     dependency_hash = compute_hash_from_paths(dependency_paths) if dependency_paths else None
     if dependency_hash:
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
-        images = get_image_names_with_dependency_hash(dependency_hash)
-        images_are_up_to_date = set(tags).issubset(set(images))
-        if images_are_up_to_date:
-            logger.debug(f"Skipping docker build as images are up to date with input dependencies")
+        images_matching_hash = get_image_names_with_dependency_hash(dependency_hash)
+        logger.debug(
+            f"Found {len(images_matching_hash)} image(s) matching dependency hash: {images_matching_hash}"
+        )
+
+        images_are_build = set(tags).issubset(set(images_matching_hash))
+        if images_are_build:
+            logger.debug(
+                f"Skipping docker build as images are up to date with input dependencies ({tags} is a subset of {images_matching_hash})"
+            )
             return tag_to_return
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
