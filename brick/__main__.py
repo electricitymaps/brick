@@ -35,6 +35,12 @@ GIT_BRANCH = subprocess.check_output(
     encoding="utf8",
 ).rstrip("\n")
 
+MAIN_BRANCH = subprocess.check_output(
+    "git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'",
+    shell=True,
+    encoding="utf8",
+).rstrip("\n")
+
 YARN_CACHE_LOCATION = "/usr/local/share/.cache/yarn"
 IMAGES_TO_YARN_CACHE_VERSION_DICT = {
     "node:8.11": "v1",
@@ -77,11 +83,17 @@ def compute_tags(name, step_name):
 
 
 def add_version_to_tag(name):
+    latest_tag = f"{name}:latest"
+    branch_tag = f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}"
+
     # Last tag should be the most specific
-    return [
-        f"{name}:latest",
-        f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}",
-    ]
+    if GIT_BRANCH == MAIN_BRANCH:
+        return [
+            latest_tag,
+            branch_tag,
+        ]
+
+    return [branch_tag]
 
 
 def get_name(target_rel_path):
