@@ -25,6 +25,16 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
     sys.exit(subprocess.run(cmd, shell=True, check=False).returncode)
 
 
+def tag_image(image_name: str, tags: List[str]):
+    image = docker_client.images.get(image_name)
+    for tag in tags:
+        logger.debug(f"Tagging {image_name} with {tag}")
+        repository, version = tag.split(":")
+        assert repository
+        assert version
+        image.tag(repository=repository, tag=version)
+
+
 def docker_build(
     tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
 ) -> str:
@@ -40,15 +50,28 @@ def docker_build(
     if dependency_hash:
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
         images_matching_hash = get_image_names_with_dependency_hash(dependency_hash)
-        logger.debug(
-            f"Found {len(images_matching_hash)} image(s) matching dependency hash: {images_matching_hash}"
-        )
+        logger.debug(f"Found {len(images_matching_hash)} image(s) matching dependency hash")
 
         images_are_build = set(tags).issubset(set(images_matching_hash))
         if images_are_build:
-            logger.debug(
-                f"Skipping docker build as images are up to date with input dependencies ({tags} is a subset of {images_matching_hash})"
-            )
+            logger.debug(f"Skipping docker build as images are up to date with input dependencies")
+            return tag_to_return
+
+        # Investigate if we can promote images instead of building them again
+        image_name = tag_to_return.split(":")[0]
+        related_images_with_latest_tag = [
+            image
+            for image in images_matching_hash
+            if image.split(":")[0] == image_name and image.endswith(":latest")
+        ]
+        if related_images_with_latest_tag:
+            # Note that we could probably allow branch images to be used for promotion.
+            assert (
+                len(related_images_with_latest_tag) == 1
+            ), f"Expected one related image, but found {related_images_with_latest_tag}"
+            image_with_latest_tag = related_images_with_latest_tag[0]
+            logger.debug(f"Promoting image {image_with_latest_tag}")
+            tag_image(image_name=image_with_latest_tag, tags=tags)
             return tag_to_return
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
@@ -120,11 +143,7 @@ def docker_build(
         digest = f.readline().split(":")[1].strip()
     os.remove(iidfile)
 
-    image = docker_client.images.get(digest)
-    for tag in tags:
-        logger.debug(f"Tagging {tag}..")
-        repository, version = tag.split(":")
-        image.tag(repository=repository, tag=version)
+    tag_image(image_name=digest, tags=tags)
 
     return tag_to_return
 
