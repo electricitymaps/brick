@@ -26,7 +26,12 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
 
 
 def docker_build(
-    tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
+    tags,
+    dockerfile_contents,
+    pass_ssh=False,
+    no_cache=False,
+    secrets=None,
+    dependency_paths=None,
 ) -> str:
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
@@ -39,9 +44,12 @@ def docker_build(
     if dependency_hash:
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
         images = get_image_names_with_dependency_hash(dependency_hash)
+        logger.info(tags)
+        logger.info(images)
         images_are_up_to_date = set(tags).issubset(set(images))
+        logger.info(images_are_up_to_date)
         if images_are_up_to_date:
-            logger.debug(f"Skipping docker build as images are up to date with input dependencies")
+            logger.info(f"Skipping docker build as images are up to date with input dependencies")
             return tag_to_return
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
@@ -68,7 +76,9 @@ def docker_build(
             basename = os.path.basename(src)
             tarfile = os.path.join(ROOT_PATH, f"{basename}.tar.gz")
             subprocess.run(
-                f"tar zc -C {src} --exclude='logs' . > {tarfile}", shell=True, check=True,
+                f"tar zc -C {src} --exclude='logs' . > {tarfile}",
+                shell=True,
+                check=True,
             )
             cmd += f" --secret id={k},src={tarfile}"
         with subprocess.Popen(
@@ -135,6 +145,9 @@ def docker_images_list(name, last_tagged_before=None):
 
 
 def get_image_names_with_dependency_hash(dependency_hash) -> List[str]:
+    logger.info(
+        f"docker images --filter \"label=brick.dependency_hash={dependency_hash}\" --format '{{{{.Repository}}}}:{{{{.Tag}}}}'"
+    )
     images = (
         subprocess.run(
             f"docker images --filter \"label=brick.dependency_hash={dependency_hash}\" --format '{{{{.Repository}}}}:{{{{.Tag}}}}'",
