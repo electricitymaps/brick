@@ -28,11 +28,9 @@ docker_client = docker.from_env()
 # Folder exclude patterns separated by |. (e.g. 'node_modules|dist|whatever')
 GLOB_EXCLUDES = "node_modules"
 
-# Discover git branch
+# Git branch name with some replacement for making it Docker repository friendly
 GIT_BRANCH = subprocess.check_output(
-    "git branch --contains `git rev-parse HEAD` | "
-    "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
-    r"sed 's/\//\-/' | sed 's/ *//g'",
+    "git rev-parse --abbrev-ref HEAD | " r"sed 's/\//\-/' | sed 's/ *//g'",
     shell=True,
     encoding="utf8",
 ).rstrip("\n")
