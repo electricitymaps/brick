@@ -71,11 +71,12 @@ def docker_build(
                 f"tar zc -C {src} --exclude='logs' . > {tarfile}", shell=True, check=True,
             )
             cmd += f" --secret id={k},src={tarfile}"
+
         with subprocess.Popen(
             args=cmd,
             encoding="utf8",
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             shell=True,
             env=env,
             universal_newlines=True,
@@ -83,13 +84,14 @@ def docker_build(
         ) as p:
             logs = [cmd]
             logger.debug(cmd)
-            while True:
-                line = p.stderr.readline()
-                if line == "":
-                    break
-                log = line.rstrip("\n")
-                logs += [log]
-                logger.debug(log)
+
+            while p.poll() is None:
+                line = p.stdout.readline()
+                if line != "":
+                    line = line.rstrip("\n")
+                    logs.append(line)
+                    logger.debug(line)
+
             returncode = p.wait()
             if returncode:
                 _out, err = p.communicate()
