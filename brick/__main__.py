@@ -28,11 +28,15 @@ docker_client = docker.from_env()
 # Folder exclude patterns separated by |. (e.g. 'node_modules|dist|whatever')
 GLOB_EXCLUDES = "node_modules"
 
-# Discover git branch
+# Git branch name with some replacement for making it Docker repository friendly
 GIT_BRANCH = subprocess.check_output(
-    "git branch --contains `git rev-parse HEAD` | "
-    "grep -v 'detached' | head -n 1 | sed 's/^* //' | "
-    r"sed 's/\//\-/' | sed 's/ *//g'",
+    "git rev-parse --abbrev-ref HEAD | " r"sed 's/\//\-/' | sed 's/ *//g'",
+    shell=True,
+    encoding="utf8",
+).rstrip("\n")
+
+MAIN_BRANCH = subprocess.check_output(
+    "git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'",
     shell=True,
     encoding="utf8",
 ).rstrip("\n")
@@ -79,11 +83,17 @@ def compute_tags(name, step_name):
 
 
 def add_version_to_tag(name):
+    latest_tag = f"{name}:latest"
+    branch_tag = f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}"
+
     # Last tag should be the most specific
-    return [
-        f"{name}:latest",
-        f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}",
-    ]
+    if GIT_BRANCH == MAIN_BRANCH:
+        return [
+            latest_tag,
+            branch_tag,
+        ]
+
+    return [branch_tag]
 
 
 def get_name(target_rel_path):

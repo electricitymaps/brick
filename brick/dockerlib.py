@@ -25,6 +25,16 @@ def docker_run(tag, command, volumes=None, ports=None, environment=None):
     sys.exit(subprocess.run(cmd, shell=True, check=False).returncode)
 
 
+def tag_image(image_name: str, tags: List[str]):
+    image = docker_client.images.get(image_name)
+    for tag in tags:
+        logger.debug(f"Tagging {image_name} with {tag}")
+        repository, version = tag.split(":")
+        assert repository
+        assert version
+        image.tag(repository=repository, tag=version)
+
+
 def docker_build(
     tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
 ) -> str:
@@ -32,16 +42,36 @@ def docker_build(
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
 
     # Optimization: Skip builds if the hash of dependencies did not change since the last build.
-    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1
+    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1+
     # second overhead for each image (steps: "resolve image config for" + "load metadata for").
     # Performance example: When everything is cached this gives a 3.5X speedup locally for 38 targets. (180 to 52 seconds)
+    #                      On CI we go from 8 minutes to 3.5 minutes
     dependency_hash = compute_hash_from_paths(dependency_paths) if dependency_paths else None
     if dependency_hash:
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
-        images = get_image_names_with_dependency_hash(dependency_hash)
-        images_are_up_to_date = set(tags).issubset(set(images))
-        if images_are_up_to_date:
+        images_matching_hash = get_image_names_with_dependency_hash(dependency_hash)
+        logger.debug(f"Found {len(images_matching_hash)} image(s) matching dependency hash")
+
+        images_are_build = set(tags).issubset(set(images_matching_hash))
+        if images_are_build:
             logger.debug(f"Skipping docker build as images are up to date with input dependencies")
+            return tag_to_return
+
+        # Investigate if we can promote images instead of building them again
+        image_name = tag_to_return.split(":")[0]
+        related_images_with_latest_tag = [
+            image
+            for image in images_matching_hash
+            if image.split(":")[0] == image_name and image.endswith(":latest")
+        ]
+        if related_images_with_latest_tag:
+            # Note that we could probably allow branch images to be used for promotion.
+            assert (
+                len(related_images_with_latest_tag) == 1
+            ), f"Expected one related image, but found {related_images_with_latest_tag}"
+            image_with_latest_tag = related_images_with_latest_tag[0]
+            logger.debug(f"Promoting image {image_with_latest_tag}")
+            tag_image(image_name=image_with_latest_tag, tags=tags)
             return tag_to_return
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
@@ -113,11 +143,7 @@ def docker_build(
         digest = f.readline().split(":")[1].strip()
     os.remove(iidfile)
 
-    image = docker_client.images.get(digest)
-    for tag in tags:
-        logger.debug(f"Tagging {tag}..")
-        repository, version = tag.split(":")
-        image.tag(repository=repository, tag=version)
+    tag_image(image_name=digest, tags=tags)
 
     return tag_to_return
 
