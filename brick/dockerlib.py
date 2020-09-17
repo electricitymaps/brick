@@ -83,7 +83,7 @@ def docker_build(
     try:
         iidfile = tempfile.mktemp()
         cmd = f"docker build . --iidfile {iidfile} -f {dockerfile_path} --progress plain"
-        env = {"DOCKER_BUILDKIT": "1"}
+        env = {"DOCKER_BUILDKIT": "1", "HOME": os.environ['HOME'], "PATH": os.environ['PATH']}
         if pass_ssh:
             cmd += " --ssh default"
             env["SSH_AUTH_SOCK"] = os.environ["SSH_AUTH_SOCK"]
