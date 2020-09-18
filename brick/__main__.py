@@ -3,7 +3,6 @@
 import logging
 import os
 import shutil
-import subprocess
 import time
 import io
 import tarfile
@@ -13,7 +12,12 @@ import click
 import docker
 from wcmatch import wcmatch
 
-from .dockerlib import docker_run, docker_build, docker_images_list, docker_image_delete
+from .dockerlib import (
+    docker_run,
+    docker_build,
+    docker_images_list,
+    docker_image_delete,
+)
 from .lib import (
     get_config,
     get_relative_config_path,
@@ -21,25 +25,13 @@ from .lib import (
     ROOT_PATH,
     intersecting_outputs,
 )
+from .git import GIT_BRANCH
 from .logger import logger, handler
 
 docker_client = docker.from_env()
 
 # Folder exclude patterns separated by |. (e.g. 'node_modules|dist|whatever')
 GLOB_EXCLUDES = "node_modules"
-
-# Git branch name with some replacement for making it Docker repository friendly
-GIT_BRANCH = subprocess.check_output(
-    "git rev-parse --abbrev-ref HEAD | " r"sed 's/\//\-/' | sed 's/ *//g'",
-    shell=True,
-    encoding="utf8",
-).rstrip("\n")
-
-MAIN_BRANCH = subprocess.check_output(
-    "git symbolic-ref refs/remotes/origin/HEAD | sed 's@^refs/remotes/origin/@@'",
-    shell=True,
-    encoding="utf8",
-).rstrip("\n")
 
 YARN_CACHE_LOCATION = "/usr/local/share/.cache/yarn"
 IMAGES_TO_YARN_CACHE_VERSION_DICT = {
@@ -85,15 +77,11 @@ def compute_tags(name, step_name):
 def add_version_to_tag(name):
     latest_tag = f"{name}:latest"
     branch_tag = f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}"
-
     # Last tag should be the most specific
-    if GIT_BRANCH == MAIN_BRANCH:
-        return [
-            latest_tag,
-            branch_tag,
-        ]
-
-    return [branch_tag]
+    return [
+        latest_tag,
+        branch_tag,
+    ]
 
 
 def get_name(target_rel_path):
@@ -313,8 +301,7 @@ def build(ctx, target, skip_previous_steps):
             logger.info(f"➡️  Building dependency {dependency}")
             ctx.invoke(build, target=os.path.join(ROOT_PATH, dependency))
 
-    # Expand inputs (globs etc..)
-    # Note dependencies must be done pre-glob
+    # Note build dependencies must be done pre-glob
     # as else globs might return nothing (if they have not been built)
     inputs = expand_inputs(target_rel_path, step.get("inputs", []))
     dependency_paths = inputs + [get_relative_config_path(target)]
