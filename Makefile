@@ -32,8 +32,12 @@ format-check:
 	$(VENV)/bin/black $(BLACK_OPTIONS) --check
 
 
-verify: format lint
-verify-ci: format-check lint
+test: $(VENV)
+	$(VENV)/bin/py.test -lsvv tests
+
+
+verify: format lint test
+verify-ci: format-check lint test
 
 
 $(VENV): $(VENV)/.made
