@@ -109,6 +109,11 @@ def get_relative_config_path(target):
 
 
 def expand_brick_environment_variables(before_expansion: str) -> str:
+    """
+    Expands any environment variable that starts with BRICK_.
+    Support syntax: ${BRICK_FOO} and ${BRICK_FOO:-default}
+    """
+
     def replacer(match):
         groups = match.groupdict()
         key = groups["key"]
