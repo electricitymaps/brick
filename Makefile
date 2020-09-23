@@ -1,6 +1,6 @@
 export PYTHONPATH=./brick
 VENV = .venv
-PY_FILES = $(shell find *.py brick -type f -name '*.py')
+PY_FILES = $(shell find brick tests -type f -name '*.py')
 # NOTE: we cannot currently use the pyproject.toml option as installation fails
 BLACK_OPTIONS = --target-version=py36 --line-length=100 brick setup.py
 all: $(VENV)
