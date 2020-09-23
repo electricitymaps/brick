@@ -1,6 +1,6 @@
 import pytest
 
-from brick.lib import expand_brick_environment_variables
+from brick.lib import expand_brick_environment_variables, get_build_repository_and_tag
 
 
 def test_expand_brick_environment_variables(monkeypatch):
@@ -38,3 +38,9 @@ def test_expand_brick_environment_variables(monkeypatch):
     with pytest.raises(AssertionError) as excinfo:
         expand_brick_environment_variables("tag: server:${BRICK_FOO}")
     assert "not find environment variable BRICK_FOO or default value" in str(excinfo.value)
+
+
+def test_get_build_repository_and_tag():
+    assert get_build_repository_and_tag({"build": {}}) is None
+    assert get_build_repository_and_tag({"build": {"tag": "foo:bar"}}) == ["foo", "bar"]
+    assert get_build_repository_and_tag({"build": {"tag": "foo"}}) == ["foo", "latest"]
