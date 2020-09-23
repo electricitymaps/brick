@@ -2,6 +2,7 @@ import glob
 import os
 import subprocess
 from typing import List
+import re
 
 import yaml
 from braceexpand import braceexpand
@@ -107,12 +108,33 @@ def get_relative_config_path(target):
     return os.path.relpath(get_config_path(target), start=ROOT_PATH)
 
 
+def expand_brick_environment_variables(before_expansion: str) -> str:
+    def replacer(match):
+        groups = match.groupdict()
+        key = groups["key"]
+        default_value = groups["default"]
+        replacement = os.getenv(key, default_value)
+        assert replacement, f"Did not find environment variable {key} or default value"
+        return replacement
+
+    pattern = re.compile(r"[$]{(?P<key>BRICK_[A-Z_]*)(?:[:]-(?P<default>[A-z\d-]*))?}")
+
+    after_expansion = pattern.sub(replacer, before_expansion)
+
+    assert (
+        "BRICK_" not in after_expansion
+    ), "The configuration contained something that looked liked an faulty BRICK_ environment variable expansion"
+
+    return after_expansion
+
+
 def get_config(target):
     try:
         with open(get_config_path(target)) as f:
-            # TODO: we could be basic sanity checking here
-            data = os.path.expandvars(f.read())
-            return yaml.load(data, Loader=yaml.FullLoader)
+            # TODO: we could be basic sanity checking here of the configuration
+            raw_config = f.read()
+            expanded_config = expand_brick_environment_variables(raw_config)
+            return yaml.load(expanded_config, Loader=yaml.FullLoader)
     except FileNotFoundError:
         raise Exception(f"BUILD.yaml not found.")
 
