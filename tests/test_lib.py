@@ -8,19 +8,19 @@ def test_expand_brick_environment_variables(monkeypatch):
 
     # Supports default if BRICK_ variable is not found
     assert (
-        expand_brick_environment_variables("tag: server:${BRICK_COMMIT_SHA:-latest}")
+        expand_brick_environment_variables("tag: server:${BRICK_COMMIT_SHA1:-latest}")
         == "tag: server:latest"
     )
 
     # Should expand BRICK_ variables if found
-    monkeypatch.setenv("BRICK_COMMIT_SHA", "1234")
+    monkeypatch.setenv("BRICK_COMMIT_SHA1", "1234")
     assert (
-        expand_brick_environment_variables("tag: server:${BRICK_COMMIT_SHA:-latest}")
+        expand_brick_environment_variables("tag: server:${BRICK_COMMIT_SHA1:-latest}")
         == "tag: server:1234"
     )
 
     assert (
-        expand_brick_environment_variables("tag: server:${BRICK_COMMIT_SHA}") == "tag: server:1234"
+        expand_brick_environment_variables("tag: server:${BRICK_COMMIT_SHA1}") == "tag: server:1234"
     )
 
     # Should not expand non BRICK_ prefixed variables

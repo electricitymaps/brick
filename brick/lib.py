@@ -117,7 +117,7 @@ def expand_brick_environment_variables(before_expansion: str) -> str:
         assert replacement, f"Did not find environment variable {key} or default value"
         return replacement
 
-    pattern = re.compile(r"[$]{(?P<key>BRICK_[A-Z_]*)(?:[:]-(?P<default>[A-z\d-]*))?}")
+    pattern = re.compile(r"[$]{(?P<key>BRICK_[A-Z\d_]*)(?:[:]-(?P<default>[A-z\d-]*))?}")
 
     after_expansion = pattern.sub(replacer, before_expansion)
 
