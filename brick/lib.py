@@ -111,6 +111,8 @@ def get_config(target):
     try:
         with open(get_config_path(target)) as f:
             # TODO: we could be basic sanity checking here
-            return yaml.load(f, Loader=yaml.FullLoader)
+            data = os.path.expandvars(f.read())
+            print(data)
+            return yaml.load(data, Loader=yaml.FullLoader)
     except FileNotFoundError:
         raise Exception(f"BUILD.yaml not found.")
