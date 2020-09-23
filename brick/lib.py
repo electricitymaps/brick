@@ -112,7 +112,21 @@ def get_config(target):
         with open(get_config_path(target)) as f:
             # TODO: we could be basic sanity checking here
             data = os.path.expandvars(f.read())
-            print(data)
             return yaml.load(data, Loader=yaml.FullLoader)
     except FileNotFoundError:
         raise Exception(f"BUILD.yaml not found.")
+
+
+def get_build_repository_and_tag(steps):
+    """
+    Return None or a tuple (repository, tag) in case the build step defined a image name (build.tag)
+    """
+    build_image_name = steps.get("build", {}).get("tag")
+
+    if not build_image_name:
+        return None
+
+    if ":" in build_image_name:
+        return build_image_name.split(":")
+    else:
+        return [build_image_name, "latest"]

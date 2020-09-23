@@ -24,6 +24,7 @@ from .lib import (
     expand_inputs,
     ROOT_PATH,
     intersecting_outputs,
+    get_build_repository_and_tag,
 )
 from .git import GIT_BRANCH
 from .logger import logger, handler
@@ -75,6 +76,7 @@ def compute_tags(name, step_name):
 
 
 def add_version_to_tag(name):
+    assert ":" not in name, f"Did not expect any tags in {name}"
     latest_tag = f"{name}:latest"
     branch_tag = f"{name}:{GIT_BRANCH.replace('#', '').replace('/', '-')}"
     # Last tag should be the most specific
@@ -320,7 +322,19 @@ def build(ctx, target, skip_previous_steps):
     )
 
     # Docker build
-    tags = compute_tags(name, "build") + add_version_to_tag(step.get("tag", name))
+    build_image_name = step.get("tag", None)
+
+    # tags consists of intermediate Brick steps + either build.tag or the name of the package
+
+    if build_image_name:
+        additional_tags = (
+            [build_image_name] if ":" in build_image_name else add_version_to_tag(build_image_name)
+        )
+    else:
+        additional_tags = add_version_to_tag(name)
+
+    tags = compute_tags(name, "build") + additional_tags
+
     digest = docker_build(
         tags=tags, dependency_paths=dependency_paths, dockerfile_contents=dockerfile_contents
     )
@@ -440,10 +454,14 @@ def deploy(ctx, target, skip_previous_steps):
         raise Exception("Could not detect previous step")
 
     # Push image if needed
-    if step.get("push_image") is True and steps.get("build", {}).get("tag"):
-        tag = steps["build"]["tag"]
-        logger.info(f"📡 Pushing {tag}..")
-        for line in docker_client.images.push(tag, stream=True, decode=True):
+    if step.get("push_image") is True:
+        repository_and_tag = get_build_repository_and_tag(steps)
+        assert repository_and_tag, "Expected build.tag when push_image was used"
+        repository, tag = repository_and_tag
+
+        logger.info(f"📡 Pushing {repository}:{tag}..")
+
+        for line in docker_client.images.push(repository, tag=tag, stream=True, decode=True):
             if "errorDetail" in line:
                 raise Exception(line["errorDetail"]["message"])
             logger.debug(line)
