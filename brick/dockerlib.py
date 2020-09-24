@@ -177,7 +177,7 @@ def get_image_names_with_dependency_hash(dependency_hash) -> List[str]:
         .strip()
     )
 
-    return images.split("\n")
+    return [s for s in images.split("\n") if s]
 
 
 def docker_image_delete(image_id, force=False):
