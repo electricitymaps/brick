@@ -24,6 +24,7 @@ A few other useful commands using a virtual environment:
     make .venv  # setup virtual environment
     make clean  # removes any generated files
     make lint   # lints using Pylint
+    make test   # run py.test
     make format # formats using Black
     make verify # runs all the above
 
