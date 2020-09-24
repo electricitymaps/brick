@@ -2,6 +2,7 @@ import glob
 import os
 import subprocess
 from typing import List
+import re
 
 import yaml
 from braceexpand import braceexpand
@@ -107,10 +108,52 @@ def get_relative_config_path(target):
     return os.path.relpath(get_config_path(target), start=ROOT_PATH)
 
 
+def expand_brick_environment_variables(before_expansion: str) -> str:
+    """
+    Expands any environment variable that starts with BRICK_.
+    Support syntax: ${BRICK_FOO} and ${BRICK_FOO:-default}
+    """
+
+    def replacer(match):
+        groups = match.groupdict()
+        key = groups["key"]
+        default_value = groups["default"]
+        replacement = os.getenv(key, default_value)
+        assert replacement, f"Did not find environment variable {key} or default value"
+        return replacement
+
+    pattern = re.compile(r"[$]{(?P<key>BRICK_[A-Z\d_]*)(?:[:]-(?P<default>[A-z\d-]*))?}")
+
+    after_expansion = pattern.sub(replacer, before_expansion)
+
+    assert (
+        "BRICK_" not in after_expansion
+    ), "The configuration contained something that looked liked an faulty BRICK_ environment variable expansion"
+
+    return after_expansion
+
+
 def get_config(target):
     try:
         with open(get_config_path(target)) as f:
-            # TODO: we could be basic sanity checking here
-            return yaml.load(f, Loader=yaml.FullLoader)
+            # TODO: we could be basic sanity checking here of the configuration
+            raw_config = f.read()
+            expanded_config = expand_brick_environment_variables(raw_config)
+            return yaml.load(expanded_config, Loader=yaml.FullLoader)
     except FileNotFoundError:
         raise Exception(f"BUILD.yaml not found.")
+
+
+def get_build_repository_and_tag(steps):
+    """
+    Return None or a tuple (repository, tag) in case the build step defined a image name (build.tag)
+    """
+    build_image_name = steps.get("build", {}).get("tag")
+
+    if not build_image_name:
+        return None
+
+    if ":" in build_image_name:
+        return build_image_name.split(":")
+    else:
+        return [build_image_name, "latest"]
