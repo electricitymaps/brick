@@ -9,6 +9,7 @@ import arrow
 
 from .lib import ROOT_PATH, compute_hash_from_paths
 from .logger import logger
+from .git import GIT_BRANCH, MAIN_BRANCH
 
 docker_client = docker.from_env()
 
@@ -41,6 +42,23 @@ def docker_build(
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
 
+    # TODO: the tags parameter is a bit awkward, a named tuple or dataclass would be nice,
+    # as each "tag" is actually not a tag, but an image name consisting of repository:tag
+
+    # Optimization:
+    # - on branches we cache from the current branch and the main branch.
+    # - on the main branch we only cache from master
+    branch_image_name = tag_to_return
+    repository, branch_image_tag = tag_to_return.split(":")
+    assert (
+        branch_image_tag != "latest"
+    ), f"The tag ordering seems off. Did not expect latest tag {tags}."
+    cache_from = (
+        branch_image_name
+        if MAIN_BRANCH == GIT_BRANCH
+        else f"{branch_image_name},{repository}:{MAIN_BRANCH}"
+    )
+
     # Optimization: Skip builds if the hash of dependencies did not change since the last build.
     # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1+
     # second overhead for each image (steps: "resolve image config for" + "load metadata for").
@@ -60,11 +78,10 @@ def docker_build(
             return tag_to_return
 
         # Investigate if we can promote images instead of building them again
-        image_name = tag_to_return.split(":")[0]
         related_images_with_latest_tag = [
             image
             for image in images_matching_hash
-            if image.split(":")[0] == image_name and image.endswith(":latest")
+            if image.split(":")[0] == repository and image.endswith(":latest")
         ]
         if related_images_with_latest_tag:
             # Note that we could probably allow branch images to be used for promotion.
@@ -84,7 +101,7 @@ def docker_build(
         dockerfile.write(dockerfile_contents)
     try:
         iidfile = tempfile.mktemp()
-        cmd = f"docker build . --iidfile {iidfile} -f {dockerfile_path} --progress plain"
+        cmd = f"docker build . --iidfile {iidfile} -f {dockerfile_path} --progress plain --cache-from {cache_from}"
         env = {"DOCKER_BUILDKIT": "1", "HOME": os.environ["HOME"], "PATH": os.environ["PATH"]}
         if pass_ssh:
             cmd += " --ssh default"
