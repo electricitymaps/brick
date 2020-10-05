@@ -41,12 +41,16 @@ def docker_build(
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
 
-    # Optimization: Skip builds if the hash of dependencies did not change since the last build.
+    # Optimization: Skip builds if the hash of dependencies (base image + inputs) did not change since
+    # the last build.
     # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1+
     # second overhead for each image (steps: "resolve image config for" + "load metadata for").
     # Performance example: When everything is cached this gives a 3.5X speedup locally for 38 targets. (180 to 52 seconds)
     #                      On CI we go from 8 minutes to 3.5 minutes
-    dependency_hash = compute_hash_from_paths(dependency_paths) if dependency_paths else None
+    from_image_id = get_image_id_from_dockerfile_contents(dockerfile_contents)
+    dependency_hash = (
+        f"{from_image_id}/{compute_hash_from_paths(dependency_paths)}" if dependency_paths else None
+    )
     if dependency_hash:
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
         images_matching_hash = get_image_names_with_dependency_hash(dependency_hash)
@@ -178,6 +182,26 @@ def get_image_names_with_dependency_hash(dependency_hash) -> List[str]:
     )
 
     return [s for s in images.split("\n") if s]
+
+
+def get_image_id_from_dockerfile_contents(dockerfile_contents: str) -> str:
+    from_image_name = [
+        l.split(" ")[1] for l in dockerfile_contents.split("\n") if l.startswith("FROM")
+    ]
+    if len(from_image_name) != 1:
+        raise Exception(f"Did not found a FROM statement in {dockerfile_contents}")
+
+    from_image_name = from_image_name[0]
+
+    def get_image_id():
+        return docker_client.images.get(from_image_name).id
+
+    try:
+        return get_image_id()
+    except docker.errors.ImageNotFound:
+        logger.debug(f"Pulling down docker image {from_image_name}")
+        docker_client.images.pull(from_image_name)
+        return get_image_id()
 
 
 def docker_image_delete(image_id, force=False):
