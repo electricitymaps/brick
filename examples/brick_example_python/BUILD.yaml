@@ -1,0 +1,15 @@
+steps:
+  prepare:
+    image: python:3.7
+
+  build:
+    commands:
+      - mkdir dist && python src/index.py > dist/out.txt
+    inputs:
+      - src
+      - ../brick_example_node/dist/out.txt
+    outputs:
+      - dist
+
+  test:
+    command: echo "test"
