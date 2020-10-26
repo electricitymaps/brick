@@ -194,9 +194,6 @@ def test_examples_node_build_2_on_master(caplog, monkeypatch) -> None:
     assert get_docker_images_built_from_debug_logs(debug_logs) == set([])  # nothing was built
 
 
-@pytest.mark.skip(
-    reason="promoting images actually doesn't work as intended when using a build tag"
-)
 def test_examples_node_build_3_on_feature_branch(caplog, monkeypatch) -> None:
     # NOTE: test depends on test_examples_node_build_1_on_master
     clean_up_output_folders()
