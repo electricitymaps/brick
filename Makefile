@@ -8,7 +8,7 @@ all: $(VENV)
 
 clean:
 	find brick -name "*.pyc" -delete
-	-rm -rf .*.made build dist *.egg-info
+	-rm -rf .*.made build dist *.egg-info coverage
 
 
 lint: $(VENV) .lint.made
@@ -33,7 +33,7 @@ format-check:
 
 
 test: $(VENV)
-	$(VENV)/bin/py.test -lsvv tests
+	$(VENV)/bin/py.test -lsvv --cov-report html:coverage --cov=brick tests
 
 
 verify: format lint test
