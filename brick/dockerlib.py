@@ -55,7 +55,7 @@ def docker_build(
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
         images_matching_hash = get_image_names_with_dependency_hash(dependency_hash)
         logger.debug(
-            f"Found {len(images_matching_hash)} image(s) matching dependency hash ({images_matching_hash[0:2]}..)"
+            f"Found {len(images_matching_hash)} image(s) matching dependency hash {dependency_hash} ({images_matching_hash[0:5]}..)"
         )
 
         images_are_build = set(tags).issubset(set(images_matching_hash))
