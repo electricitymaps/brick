@@ -26,5 +26,7 @@ setuptools.setup(
         "yamllint==1.17.0",
         "wcmatch==6.0.1",
     ],
-    extras_require={"dev": ["black==19.10b0", "pylint==2.6.0", "pytest==6.0.1"]},
+    extras_require={
+        "dev": ["black==19.10b0", "pylint==2.6.0", "pytest==6.0.1", "pytest-cov==2.10.1"]
+    },
 )

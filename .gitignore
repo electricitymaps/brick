@@ -6,3 +6,5 @@ __pycache__
 *.made
 .venv
 pip-wheel-metadata
+coverage
+.coverage
