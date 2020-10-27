@@ -55,7 +55,7 @@ def docker_build(
         dockerfile_contents += f'\nLABEL brick.dependency_hash="{dependency_hash}"'
         images_matching_hash = get_image_names_with_dependency_hash(dependency_hash)
         logger.debug(
-            f"Found {len(images_matching_hash)} image(s) matching dependency hash ({images_matching_hash[0:2]}..)"
+            f"Found {len(images_matching_hash)} image(s) matching dependency hash {dependency_hash} ({images_matching_hash[0:5]}..)"
         )
 
         images_are_build = set(tags).issubset(set(images_matching_hash))
@@ -63,18 +63,16 @@ def docker_build(
             logger.debug(f"Skipping docker build as images are up to date with input dependencies")
             return tag_to_return
 
-        # Investigate if we can promote images instead of building them again
-        image_name = tag_to_return.split(":")[0]
+        # Investigate if we can promote an image instead of building it again
+        image_names = {t.split(":")[0] for t in tags}
         related_images_with_latest_tag = [
             image
             for image in images_matching_hash
-            if image.split(":")[0] == image_name and image.endswith(":latest")
+            if image.split(":")[0] in image_names and image.endswith(":latest")
         ]
+
         if related_images_with_latest_tag:
             # Note that we could probably allow branch images to be used for promotion.
-            assert (
-                len(related_images_with_latest_tag) == 1
-            ), f"Expected one related image, but found {related_images_with_latest_tag}"
             image_with_latest_tag = related_images_with_latest_tag[0]
             logger.debug(f"Promoting image {image_with_latest_tag}")
             tag_image(image_name=image_with_latest_tag, tags=tags)
