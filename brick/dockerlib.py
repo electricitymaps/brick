@@ -64,7 +64,7 @@ def docker_build(
             return tag_to_return
 
         # Investigate if we can promote an image instead of building it again
-        image_names = set([t.split(":")[0] for t in tags])
+        image_names = {t.split(":")[0] for t in tags}
         related_images_with_latest_tag = [
             image
             for image in images_matching_hash
