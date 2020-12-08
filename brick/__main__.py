@@ -470,7 +470,6 @@ def deploy(ctx, target, skip_previous_steps):
         return
 
     inputs = expand_inputs(target_rel_path, step.get("inputs", []))
-    dockerfile_contents = "# syntax = docker/dockerfile:experimental\n"
     inputs_from_build = None
     from_image = previous_tag
 
@@ -483,7 +482,7 @@ def deploy(ctx, target, skip_previous_steps):
             (previous_tag, os.path.join(target_rel_path, o)) for o in ["."] + outputs
         ]
 
-    dockerfile_contents += generate_dockerfile_contents(
+    dockerfile_contents = generate_dockerfile_contents(
         from_image=from_image,
         inputs=inputs,
         inputs_from_build=inputs_from_build,
