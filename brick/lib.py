@@ -147,9 +147,11 @@ def get_config(target):
                     match = pattern.findall(value)  # to find all env variables
                     if match:
                         for g in match:
-                            if not g in os.environ:
-                                raise Exception(f'Environment variable "${g}" isn\'t present')
-                            value = value.replace(f'${{{g}}}', os.environ.get(g, g))
+                            if g not in os.environ:
+                                raise Exception(
+                                    f'Missing environment variable "${g}"')
+                            value = value.replace(
+                                f'${{{g}}}', os.environ.get(g, g))
                         # assign
                         step['environment'][k] = value
             return obj
