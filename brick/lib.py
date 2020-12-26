@@ -139,7 +139,20 @@ def get_config(target):
             # TODO: we could be basic sanity checking here of the configuration
             raw_config = f.read()
             expanded_config = expand_brick_environment_variables(raw_config)
-            return yaml.load(expanded_config, Loader=yaml.FullLoader)
+            obj = yaml.load(expanded_config, Loader=yaml.FullLoader)
+            # Expand environment variables when needed using pattern ${var}
+            pattern = re.compile('.*?\${(\w+)}.*?')
+            for (_, step) in obj.get('steps', {}).items():
+                for (k, value) in step.get('environment', {}).items():
+                    match = pattern.findall(value)  # to find all env variables
+                    if match:
+                        for g in match:
+                            if not g in os.environ:
+                                raise Exception(f'Environment variable "${g}" isn\'t present')
+                            value = value.replace(f'${{{g}}}', os.environ.get(g, g))
+                        # assign
+                        step['environment'][k] = value
+            return obj
     except FileNotFoundError:
         raise Exception(f"BUILD.yaml not found.")
 
