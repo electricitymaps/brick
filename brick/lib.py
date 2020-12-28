@@ -141,7 +141,7 @@ def get_config(target):
             expanded_config = expand_brick_environment_variables(raw_config)
             obj = yaml.load(expanded_config, Loader=yaml.FullLoader)
             # Expand environment variables when needed using pattern ${var}
-            pattern = re.compile(".*?\${(\w+)}.*?")
+            pattern = re.compile(r".*?\${(\w+)}.*?")
             for (_, step) in obj.get("steps", {}).items():
                 for (k, value) in step.get("environment", {}).items():
                     match = pattern.findall(value)  # to find all env variables
