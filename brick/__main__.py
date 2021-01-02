@@ -495,7 +495,7 @@ def deploy(ctx, target, skip_previous_steps):
     # Docker build
     logger.info(f"🚀 Deploying {target_rel_path}..")
 
-    docker_build, is_cached = docker_build(
+    _, is_cached = docker_build(
         tags=compute_tags(name, "deploy"),
         dockerfile_contents=dockerfile_contents,
         dependency_paths=None,  # always run deployment

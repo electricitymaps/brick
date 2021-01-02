@@ -140,7 +140,7 @@ def docker_build(
                     # #9 DONE 0.0s
 
                     # Detect step id
-                    step_id_match = re.match("#(?P<id>\d+)", line)
+                    step_id_match = re.match(r"#(?P<id>\d+)", line)
                     if step_id_match:
                         step_id = step_id_match.group("id")
                     else:
@@ -151,7 +151,7 @@ def docker_build(
 
                     # Extra step extended info
                     step_match = re.match(
-                        "#(?P<id>\d+) \[.*(?P<number>\d+)/\d+\] (?P<command>.*)", line
+                        r"#(?P<id>\d+) \[.*(?P<number>\d+)/\d+\] (?P<command>.*)", line
                     )
                     if step_match:
                         assert step_id == step_match.group("id")
