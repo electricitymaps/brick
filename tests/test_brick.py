@@ -258,7 +258,7 @@ def test_workspace_build(monkeypatch, caplog) -> None:
     debug_logs = get_log_messages(caplog, logging.DEBUG)
 
     # TODO: we are clearly re-building too much here:
-    assert info_logs[:15] == [
+    assert info_logs[:16] == [
         "Found 2 target(s)..",
         "🔨 Preparing brick_example_node..",
         "💯 Preparation phase done (cached)!",
@@ -273,10 +273,12 @@ def test_workspace_build(monkeypatch, caplog) -> None:
         "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
         "💯 Finished building brick_example_node (cached)!",
-        "💯 Finished building brick_example_python (cached)!",
+        "Cache invalidated by COPY [brick_example_python/src, "
+        "/home/brick_example_python/src]",
+        "💯 Finished building brick_example_python!",
     ]
 
-    assert info_logs[15].startswith("🌟 All targets finished in")
+    assert info_logs[16].startswith("🌟 All targets finished in")
 
     expected_docker_images_built = {
         "brick_example_node_prepare:latest",
