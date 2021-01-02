@@ -263,10 +263,10 @@ def prepare(ctx, target, skip_previous_steps):
     # Docker build
     logger.info(f"🔨 Preparing {target_rel_path}..")
     tags = compute_tags(name, "prepare")
-    digest = docker_build(
+    digest, is_cached = docker_build(
         tags=tags, dependency_paths=dependency_paths, dockerfile_contents=dockerfile_contents
     )
-    logger.info(f"💯 Preparation phase done!")
+    logger.info(f"💯 Preparation phase done{' (cached)' if is_cached else ''}!")
     log_exec_time("prepare", target_rel_path, start_time)
     # TODO: For some reason, buildkit doesn't support FROM with digests
     return digest
@@ -335,7 +335,7 @@ def build(ctx, target, skip_previous_steps):
 
     tags = compute_tags(name, "build") + additional_tags
 
-    digest = docker_build(
+    digest, is_cached = docker_build(
         tags=tags, dependency_paths=dependency_paths, dockerfile_contents=dockerfile_contents
     )
 
@@ -370,7 +370,7 @@ def build(ctx, target, skip_previous_steps):
                 host_output_folder = os.path.abspath(os.path.join(host_path, "../"))
                 tar.extractall(host_output_folder)
 
-    logger.info(f"💯 Finished building {target_rel_path}!")
+    logger.info(f"💯 Finished building {target_rel_path}{' (cached)' if is_cached else ''}!")
     log_exec_time("build", target_rel_path, start_time)
     return digest
 
@@ -410,12 +410,12 @@ def test(ctx, target, skip_previous_steps):
 
     # Docker build
     logger.info(f"🔍 Testing {target_rel_path}..")
-    digest = docker_build(
+    digest, is_cached = docker_build(
         tags=compute_tags(name, "test"),
         dependency_paths=None,  # always run tests
         dockerfile_contents=dockerfile_contents,
     )
-    logger.info(f"✅ Tests passed!")
+    logger.info(f"✅ Tests passed{' (cached)' if is_cached else ''}!")
     log_exec_time("test", target_rel_path, start_time)
     return digest
 
@@ -495,14 +495,14 @@ def deploy(ctx, target, skip_previous_steps):
     # Docker build
     logger.info(f"🚀 Deploying {target_rel_path}..")
 
-    docker_build(
+    docker_build, is_cached = docker_build(
         tags=compute_tags(name, "deploy"),
         dockerfile_contents=dockerfile_contents,
         dependency_paths=None,  # always run deployment
         pass_ssh=step.get("pass_ssh", False),
         secrets=step.get("secrets"),
     )
-    logger.info(f"💯 Deploy finished!")
+    logger.info(f"💯 Deploy finished{' (cached)' if is_cached else ''}!")
 
 
 @cli.command()
