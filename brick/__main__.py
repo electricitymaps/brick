@@ -101,19 +101,23 @@ def generate_dockerfile_contents(
     secrets=None,
     external_images=None,
     environment=None,
+    chown=None,
 ):
     dockerfile_contents = "# syntax = docker/dockerfile:experimental\n"
     dockerfile_contents += f"FROM {from_image}\n"
+
+    copy_flag_chown = f' --chown={chown}' if chown else ''
+
     if inputs_from_build:
         dockerfile_contents += (
-            "\n".join([f"COPY --from={x[0]} /home/{x[1]} /home/{x[1]}" for x in inputs_from_build])
+            "\n".join([f"COPY{copy_flag_chown} --from={x[0]} /home/{x[1]} /home/{x[1]}" for x in inputs_from_build])
             + "\n"
         )
-    dockerfile_contents += "\n".join([f'COPY ["{x}", "/home/{x}"]' for x in inputs]) + "\n"
+    dockerfile_contents += "\n".join([f'COPY{copy_flag_chown}  ["{x}", "/home/{x}"]' for x in inputs]) + "\n"
     # External images
     # https://docs.docker.com/develop/develop-images/multistage-build/#use-an-external-image-as-a-stage
     for k, v in (external_images or {}).items():
-        dockerfile_contents += f'COPY --from={v["tag"]} {v["src"]} {v["target"]}\n'
+        dockerfile_contents += f'COPY{copy_flag_chown} --from={v["tag"]} {v["src"]} {v["target"]}\n'
 
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
     run_flags = []
@@ -258,6 +262,7 @@ def prepare(ctx, target, skip_previous_steps):
         commands=step.get("commands", []),
         environment=step.get("environment", {}),
         workdir=target_rel_path,
+        chown=step.get('chown'),
     )
 
     # Docker build
@@ -319,6 +324,7 @@ def build(ctx, target, skip_previous_steps):
         environment=step.get("environment", {}),
         external_images=step.get("external_images"),
         workdir=target_rel_path,
+        chown=step.get('chown'),
     )
 
     # Docker build
@@ -406,6 +412,7 @@ def test(ctx, target, skip_previous_steps):
         commands=step.get("commands", []),
         workdir=target_rel_path,
         environment=step.get("environment", {}),
+        chown=step.get('chown'),
     )
 
     # Docker build
@@ -490,6 +497,7 @@ def deploy(ctx, target, skip_previous_steps):
         workdir=target_rel_path,
         pass_ssh=step.get("pass_ssh", False),
         secrets=step.get("secrets"),
+        chown=step.get('chown'),
     )
 
     # Docker build
