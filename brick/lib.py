@@ -41,7 +41,9 @@ def expand_inputs(target, inputs):
 def intersecting_outputs(target, inputs):
     """
     Detects if the inputs correspond to the output of another build
-    and returns the relative paths to the build that needs to be executed first
+    and returns the relative paths to the build that needs to be executed first.
+    We here assume that the output is always a descendant of the BUILD.yaml
+    used to build it.
     """
     matches = set()
     for input_path in inputs:
@@ -68,11 +70,13 @@ def intersecting_outputs(target, inputs):
                                 os.path.abspath(os.path.join(dir_path, x))
                                 for x in config["steps"].get("build", {}).get("outputs", [])
                             ]
-                            if any([x in input_path for x in outputs]):
+                            # Test if any output is a descendant of input (thus a dependency)
+                            # or if input is a descendant of any output (also a dependency)
+                            if any([output.startswith(input_path) or input_path.startswith(output) for output in outputs]):
                                 matches.add(os.path.relpath(dir_path, ROOT_PATH))
                         break
                     else:
-                        # This will move one level up
+                        # This will move one level up (see assumption in docstring)
                         dir_path = os.path.dirname(dir_path)
                         if os.path.abspath(dir_path) in [ROOT_PATH, "/"]:
                             # Abort, found nothing
