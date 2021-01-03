@@ -72,7 +72,12 @@ def intersecting_outputs(target, inputs):
                             ]
                             # Test if any output is a descendant of input (thus a dependency)
                             # or if input is a descendant of any output (also a dependency)
-                            if any([output.startswith(input_path) or input_path.startswith(output) for output in outputs]):
+                            if any(
+                                [
+                                    output.startswith(input_path) or input_path.startswith(output)
+                                    for output in outputs
+                                ]
+                            ):
                                 matches.add(os.path.relpath(dir_path, ROOT_PATH))
                         break
                     else:
