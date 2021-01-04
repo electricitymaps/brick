@@ -140,7 +140,7 @@ def generate_dockerfile_contents(
         run_flags += [f'--mount=type=secret,id={k},target={v["target"]}.tar.gz,required']
 
     for k, v in (environment or {}).items():
-        dockerfile_contents += f"ENV {k}={v}\n"
+        dockerfile_contents += f"ENV {k}='{v}'\n"
 
     def generate_run_command(cmd, run_flags):
         cache_version = IMAGES_TO_YARN_CACHE_VERSION_DICT.get(from_image)
