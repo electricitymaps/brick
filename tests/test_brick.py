@@ -141,11 +141,11 @@ def test_examples_node_build_1_on_master(monkeypatch, caplog) -> None:
 
     assert info_logs == [
         "🔨 Preparing brick_example_node..",
-        "Cache invalidated by COPY [brick_example_node/package.json, "
+        "Cache invalidated by COPY  [brick_example_node/package.json, "
         "/home/brick_example...",
         "💯 Preparation phase done!",
         "🔨 Building brick_example_node..",
-        "Cache invalidated by COPY [brick_example_node/src, "
+        "Cache invalidated by COPY  [brick_example_node/src, "
         "/home/brick_example_node/src]",
         "💯 Finished building brick_example_node!",
     ]
