@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import subprocess
 import sys
@@ -37,9 +38,10 @@ def tag_image(image_name: str, tags: List[str]):
 
 def docker_build(
     tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
-) -> str:
+) -> (str, bool):
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
+    is_cached = True  # True by default
 
     # Optimization: Skip builds if the hash of dependencies (base image + inputs) did not change since
     # the last build.
@@ -61,7 +63,7 @@ def docker_build(
         images_are_build = set(tags).issubset(set(images_matching_hash))
         if images_are_build:
             logger.debug(f"Skipping docker build as images are up to date with input dependencies")
-            return tag_to_return
+            return tag_to_return, is_cached
 
         # Investigate if we can promote an image instead of building it again
         image_names = {t.split(":")[0] for t in tags}
@@ -76,7 +78,7 @@ def docker_build(
             image_with_latest_tag = related_images_with_latest_tag[0]
             logger.debug(f"Promoting image {image_with_latest_tag}")
             tag_image(image_name=image_with_latest_tag, tags=tags)
-            return tag_to_return
+            return tag_to_return, is_cached
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
     if os.path.exists(dockerfile_path):
@@ -119,12 +121,54 @@ def docker_build(
             logs = [cmd]
             logger.debug(cmd)
 
+            # State machine keeping track of step
+            step_id = None
+            step_command = None
+            step_is_cacheable = None  # Some steps can't be cached
+
             while p.poll() is None:
                 line = p.stdout.readline()
                 if line != "":
                     line = line.rstrip("\n")
                     logs.append(line)
                     logger.debug(line)
+
+                    # A line is typically "#9 [3/6] COPY ...."
+                    # Followed by either
+                    # #9 CACHED
+                    # or
+                    # #9 DONE 0.0s
+
+                    # Detect step id
+                    step_id_match = re.match(r"#(?P<id>\d+)", line)
+                    if step_id_match:
+                        step_id = step_id_match.group("id")
+                    else:
+                        # Reset
+                        step_id = None
+                        step_command = None
+                        step_is_cacheable = None
+
+                    # Extra step extended info
+                    step_match = re.match(
+                        r"#(?P<id>\d+) \[.*(?P<number>\d+)/\d+\] (?P<command>.*)", line
+                    )
+                    if step_match:
+                        assert step_id == step_match.group("id")
+                        step_command = step_match.group("command")
+                        # Steps of the form "#X [ Y/Z] ..." can be cached
+                        # However, "FROM" commands can't
+                        step_is_cacheable = not step_command.startswith("FROM ")
+                    cache_invalidated_match = line.startswith(f"#{step_id} DONE")
+                    if (
+                        line.startswith(f"#{step_id}")
+                        and step_is_cacheable
+                        and cache_invalidated_match
+                        and is_cached
+                    ):
+                        # Cache has been invalidated
+                        logger.info(f"Cache invalidated by {step_command}")
+                        is_cached = False
 
             returncode = p.wait()
             if returncode:
@@ -149,7 +193,7 @@ def docker_build(
 
     tag_image(image_name=digest, tags=tags)
 
-    return tag_to_return
+    return tag_to_return, is_cached
 
 
 def docker_images_list(name, last_tagged_before=None):
