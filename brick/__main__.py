@@ -124,7 +124,9 @@ def generate_dockerfile_contents(
     # External images
     # https://docs.docker.com/develop/develop-images/multistage-build/#use-an-external-image-as-a-stage
     for k, v in (external_images or {}).items():
-        dockerfile_contents += f'COPY {copy_flag_chown} --from={v["tag"]} {v["src"]} {v["target"]}\n'
+        dockerfile_contents += (
+            f'COPY {copy_flag_chown} --from={v["tag"]} {v["src"]} {v["target"]}\n'
+        )
 
     dockerfile_contents += f"WORKDIR /home/{workdir or ''}\n"
     run_flags = []
