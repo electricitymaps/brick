@@ -141,8 +141,12 @@ def test_examples_node_build_1_on_master(monkeypatch, caplog) -> None:
 
     assert info_logs == [
         "🔨 Preparing brick_example_node..",
+        "Cache invalidated by COPY [brick_example_node/package.json, "
+        "/home/brick_example...",
         "💯 Preparation phase done!",
         "🔨 Building brick_example_node..",
+        "Cache invalidated by COPY [brick_example_node/src, "
+        "/home/brick_example_node/src]",
         "💯 Finished building brick_example_node!",
     ]
 
@@ -176,9 +180,9 @@ def test_examples_node_build_2_on_master(caplog, monkeypatch) -> None:
 
     assert info_logs == [
         "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done!",
+        "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node!",
+        "💯 Finished building brick_example_node (cached)!",
     ]
 
     assert get_docker_images()[0] == {
@@ -207,9 +211,9 @@ def test_examples_node_build_3_on_feature_branch(caplog, monkeypatch) -> None:
 
     assert info_logs == [
         "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done!",
+        "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node!",
+        "💯 Finished building brick_example_node (cached)!",
     ]
 
     expected_docker_images_built = {
@@ -254,24 +258,27 @@ def test_workspace_build(monkeypatch, caplog) -> None:
     debug_logs = get_log_messages(caplog, logging.DEBUG)
 
     # TODO: we are clearly re-building too much here:
-    assert info_logs[:14] == [
+    assert info_logs[:16] == [
         "Found 2 target(s)..",
         "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done!",
+        "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node!",
+        "💯 Finished building brick_example_node (cached)!",
         "🔨 Preparing brick_example_python..",
+        "Cache invalidated by WORKDIR /home/brick_example_python",
         "💯 Preparation phase done!",
         "🔨 Building brick_example_python..",
         "➡️  Building dependency brick_example_node",
         "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done!",
+        "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node!",
+        "💯 Finished building brick_example_node (cached)!",
+        "Cache invalidated by COPY [brick_example_python/src, "
+        "/home/brick_example_python/src]",
         "💯 Finished building brick_example_python!",
     ]
 
-    assert info_logs[14].startswith("🌟 All targets finished in")
+    assert info_logs[16].startswith("🌟 All targets finished in")
 
     expected_docker_images_built = {
         "brick_example_node_prepare:latest",
@@ -302,23 +309,24 @@ def test_workspace_test(monkeypatch, caplog) -> None:
     info_logs = get_log_messages(caplog, logging.INFO)
     debug_logs = get_log_messages(caplog, logging.DEBUG)
 
-    assert info_logs[:13] == [
+    assert info_logs[:14] == [
         "Found 2 target(s)..",
         "Nothing to test",  # TODO: improve the log...
         "🔨 Preparing brick_example_python..",
-        "💯 Preparation phase done!",
+        "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_python..",
         "➡️  Building dependency brick_example_node",
         "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done!",
+        "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node!",
-        "💯 Finished building brick_example_python!",
+        "💯 Finished building brick_example_node (cached)!",
+        "💯 Finished building brick_example_python (cached)!",
         "🔍 Testing brick_example_python..",
+        "Cache invalidated by WORKDIR /home/brick_example_python",
         "✅ Tests passed!",
     ]
 
-    assert info_logs[13].startswith("🌟 All targets finished in")
+    assert info_logs[14].startswith("🌟 All targets finished in")
 
     assert get_docker_images_built_from_debug_logs(debug_logs) == {
         "brick_example_python_test:master",
