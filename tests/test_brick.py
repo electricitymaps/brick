@@ -273,7 +273,7 @@ def test_workspace_build(monkeypatch, caplog) -> None:
         "💯 Preparation phase done (cached)!",
         "🔨 Building brick_example_node..",
         "💯 Finished building brick_example_node (cached)!",
-        "Cache invalidated by COPY [brick_example_python/src, "
+        "Cache invalidated by COPY  [brick_example_python/src, "
         "/home/brick_example_python/src]",
         "💯 Finished building brick_example_python!",
     ]
