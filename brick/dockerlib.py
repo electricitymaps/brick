@@ -4,7 +4,7 @@ import tempfile
 import subprocess
 import sys
 
-from typing import List
+from typing import List, Tuple
 import docker
 import arrow
 
@@ -38,7 +38,7 @@ def tag_image(image_name: str, tags: List[str]):
 
 def docker_build(
     tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
-) -> (str, bool):
+) -> Tuple[str, bool]:
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
     is_cached = True  # True by default
