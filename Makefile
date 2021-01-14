@@ -8,7 +8,7 @@ all: $(VENV)
 
 clean:
 	find brick -name "*.pyc" -delete
-	-rm -rf .*.made build dist *.egg-info coverage
+	-rm -rf .*.made build dist *.egg-info coverage .pytest_cache $(VENV)
 
 
 lint: $(VENV) .lint.made
