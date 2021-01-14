@@ -12,6 +12,11 @@ def test_expand_brick_environment_variables(monkeypatch):
         == "tag: server:latest"
     )
 
+    assert (
+        expand_brick_environment_variables("${BRICK_DB_HOST:-host.docker.internal}")
+        == "host.docker.internal"
+    )
+
     # Should expand BRICK_ variables if found
     monkeypatch.setenv("BRICK_COMMIT_SHA1", "1234")
     assert (
