@@ -27,6 +27,12 @@ setuptools.setup(
         "wcmatch==6.0.1",
     ],
     extras_require={
-        "dev": ["black==19.10b0", "pylint==2.6.0", "pytest==6.0.1", "pytest-cov==2.10.1"]
+        "dev": [
+            "black==19.10b0",
+            "mypy==0.790",
+            "pylint==2.6.0",
+            "pytest==6.0.1",
+            "pytest-cov==2.10.1",
+        ]
     },
 )

@@ -37,7 +37,12 @@ def tag_image(image_name: str, tags: List[str]):
 
 
 def docker_build(
-    tags, dockerfile_contents, pass_ssh=False, no_cache=False, secrets=None, dependency_paths=None,
+    tags: List[str],
+    dockerfile_contents: str,
+    pass_ssh=False,
+    no_cache=False,
+    secrets=None,
+    dependency_paths=None,
 ) -> Tuple[str, bool]:
     # pylint: disable=too-many-branches
     tag_to_return = tags[-1]  # Not sure why we return an argument the caller provided
@@ -127,7 +132,7 @@ def docker_build(
             step_is_cacheable = None  # Some steps can't be cached
 
             while p.poll() is None:
-                line = p.stdout.readline()
+                line = p.stdout.readline()  # type: ignore
                 if line != "":
                     line = line.rstrip("\n")
                     logs.append(line)
@@ -227,16 +232,19 @@ def get_image_names_with_dependency_hash(dependency_hash) -> List[str]:
 
 
 def get_image_id_from_dockerfile_contents(dockerfile_contents: str) -> str:
-    from_image_name = [
+    from_image_names = [
         l.split(" ")[1] for l in dockerfile_contents.split("\n") if l.startswith("FROM")
     ]
-    if len(from_image_name) != 1:
+    if len(from_image_names) != 1:
         raise Exception(f"Did not found a FROM statement in {dockerfile_contents}")
 
-    from_image_name = from_image_name[0]
+    from_image_name = from_image_names[0]
 
-    def get_image_id():
-        return docker_client.images.get(from_image_name).id
+    def get_image_id() -> str:
+        image_id = docker_client.images.get(from_image_name).id
+        if not isinstance(image_id, str):
+            raise Exception(f"Did not find string id on image {from_image_name}")
+        return image_id
 
     try:
         return get_image_id()
