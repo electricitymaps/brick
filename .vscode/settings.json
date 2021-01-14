@@ -7,8 +7,7 @@
     "editor.formatOnSave": true,
     "editor.formatOnPaste": false
   },
-  "python.formatting.blackArgs": [
-    "--target-version=py36",
-    "--line-length=100"
-  ]
+  "python.formatting.blackArgs": ["--target-version=py36", "--line-length=100"],
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyPath": ".venv/bin/mypy"
 }

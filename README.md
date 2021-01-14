@@ -21,13 +21,14 @@ This will create a symlink so you can develop and use the `brick` command global
 
 A few other useful commands using a virtual environment:
 
-    make .venv  # setup virtual environment
-    make clean  # removes any generated files
-    make lint   # lints using Pylint
-    make test   # run py.test
-    make format # formats using Black
-    make verify # runs all the above
+    make .venv      # setup virtual environment
+    make clean      # removes any generated files
+    make lint       # lints using Pylint
+    make typecheck  # mypy typechecking
+    make test       # run py.test
+    make format     # formats using Black
 
+    make verify     # runs all the above
 
 ## Usage
 
@@ -106,4 +107,4 @@ Commands:
 
 ## Known Issues
 
-* **`brick build` doesn't provide full Docker steps output** - this issue might appear for some versions of Docker but it shouldn't be there on the version `19.03.4` (see [#35](https://github.com/tmrowco/brick/issues/35) for more context); the ultimate cause might be a bug with [docker-py](https://github.com/docker/docker-py)
+- **`brick build` doesn't provide full Docker steps output** - this issue might appear for some versions of Docker but it shouldn't be there on the version `19.03.4` (see [#35](https://github.com/tmrowco/brick/issues/35) for more context); the ultimate cause might be a bug with [docker-py](https://github.com/docker/docker-py)
