@@ -534,8 +534,11 @@ def develop(ctx, target):
     digest = ctx.invoke(prepare, target=target)
 
     step = steps["develop"]
+    prepare_step = steps.get("prepare")
     build_step = steps["build"]
     inputs = expand_inputs(target_rel_path, build_step["inputs"])
+    if prepare_step:
+        inputs += expand_inputs(target_rel_path, prepare_step.get("inputs"))
     volumes = {}
     for host_path in inputs:
         volumes[os.path.abspath(os.path.join(ROOT_PATH, host_path))] = {
