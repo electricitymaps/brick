@@ -8,7 +8,7 @@ all: $(VENV)
 
 clean:
 	find brick -name "*.pyc" -delete
-	-rm -rf .*.made build dist *.egg-info coverage
+	-rm -rf .*.made build dist *.egg-info coverage .pytest_cache $(VENV)
 
 
 lint: $(VENV) .lint.made
@@ -27,7 +27,6 @@ format: $(VENV) .format.made
 	$(VENV)/bin/black $(BLACK_OPTIONS)
 	touch $@
 
-
 format-check:
 	$(VENV)/bin/black $(BLACK_OPTIONS) --check
 
@@ -35,10 +34,11 @@ format-check:
 test: $(VENV)
 	$(VENV)/bin/py.test -lsvv --cov-report html:coverage --cov=brick tests
 
+typecheck: $(VENV)
+	$(VENV)/bin/mypy brick
 
-verify: format lint test
-verify-ci: format-check lint test
-
+verify: format lint typecheck test
+verify-ci: format-check lint typecheck test
 
 $(VENV): $(VENV)/.made
 

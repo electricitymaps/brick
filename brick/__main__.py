@@ -439,8 +439,9 @@ def test(ctx, target, skip_previous_steps):
 @cli.command()
 @click.argument("target", default=".")
 @click.argument("skip_previous_steps", default=False)
+@click.option("--no-cache", default=False, is_flag=True, help="skip caching deployment")
 @click.pass_context
-def deploy(ctx, target, skip_previous_steps):
+def deploy(ctx, target, skip_previous_steps, no_cache):
     if check_recursive(ctx, target, deploy):
         return
 
@@ -518,6 +519,7 @@ def deploy(ctx, target, skip_previous_steps):
         dependency_paths=None,  # always run deployment
         pass_ssh=step.get("pass_ssh", False),
         secrets=step.get("secrets"),
+        no_cache=no_cache,
     )
     logger.info(f"💯 Deploy finished{' (cached)' if is_cached else ''}!")
 

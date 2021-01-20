@@ -4,6 +4,8 @@ build
 __pycache__
 .pytest_cache
 *.made
+.mypy_cache
+.pytest_cache
 .venv
 pip-wheel-metadata
 coverage
