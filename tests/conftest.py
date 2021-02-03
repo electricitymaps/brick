@@ -12,4 +12,3 @@ def pytest_sessionstart():
     from brick.logger import logger, handler
 
     logger.removeHandler(handler)
-
