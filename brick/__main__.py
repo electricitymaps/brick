@@ -358,7 +358,7 @@ def build(ctx, target, skip_previous_steps):
 
     # Gather output
     for output in step.get("outputs", []):
-        logger.debug(f"Collecting {os.path.join(target_rel_path, output)}..")
+        logger.debug(f"Collecting {os.path.join(target_rel_path, output)} from {digest}")
         # Make sure we check that outputs are in this folder,
         # as else the dependency system won't work
         if os.path.abspath(os.path.join(ROOT_PATH, target_rel_path)) not in os.path.abspath(
@@ -376,7 +376,14 @@ def build(ctx, target, skip_previous_steps):
 
         # Pull out the outputs to the host
         container = docker_client.containers.run(image=digest, remove=True, detach=True)
-        archive_bits, _stats = container.get_archive(container_path)
+        try:
+            archive_bits, _stats = container.get_archive(container_path)
+        except docker.errors.NotFound:
+            # We see periodic failures, not sure if we should restart the container?
+            logger.info(f"Collecting failed, retrying")
+            time.sleep(2)
+            archive_bits, _stats = container.get_archive(container_path)
+
         with io.BytesIO() as archive_tar_content:
             for chunk in archive_bits:
                 archive_tar_content.write(chunk)
