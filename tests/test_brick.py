@@ -11,9 +11,8 @@ import logging
 import os
 import subprocess
 
-from click.testing import CliRunner
+from click.testing import CliRunner, Result
 from click.core import Context
-import pytest
 
 from brick.logger import logger, handler
 from brick import git
@@ -31,13 +30,15 @@ logger.removeHandler(handler)
 DockerImage = namedtuple("DockerImage", ["tag", "created_at"])
 
 
+def run_shell_command(cmd: str, check=True):
+    return subprocess.run(
+        cmd, shell=True, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+
+
 def get_docker_images() -> Tuple[Set[str], Dict[str, List[DockerImage]]]:
-    result = subprocess.run(
+    result = run_shell_command(
         f'docker images --format "{{{{.Repository}}}};{{{{.Tag}}}};{{{{.CreatedAt}}}}" | grep "brick_example"',
-        shell=True,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
     )
 
     lines = result.stdout.decode("utf-8").split("\n")
@@ -53,7 +54,7 @@ def get_docker_images() -> Tuple[Set[str], Dict[str, List[DockerImage]]]:
     return images, repositories_to_images
 
 
-def get_output_file_content(file_path):
+def get_output_file_content(file_path: str):
     try:
         with open(file_path) as f:
             return f.read().strip()
@@ -61,23 +62,20 @@ def get_output_file_content(file_path):
         return None
 
 
-def clean_up_test_images():
-    subprocess.run(
-        f"docker rmi -f $(docker images | grep 'brick_example')",
-        shell=True,
+def clean_up_test_images() -> None:
+    run_shell_command(
+        "docker images -a | grep 'brick_example' | awk '{print $3}' | xargs docker rmi -f",
         check=False,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
     )
 
 
-def clean_up_output_folders():
+def clean_up_output_folders() -> None:
     for path in [OUTPUT_FILE_NODE, OUTPUT_FILE_PYTHON]:
         if os.path.isfile(path):
             os.remove(path)
 
 
-def invoke_brick_command(monkeypatch, command: str, folder: str, recursive=False):
+def invoke_brick_command(monkeypatch, command: str, folder: str, recursive=False) -> Result:
     # pylint: disable import-outside-toplevel
 
     if recursive:
@@ -136,17 +134,7 @@ def test_examples_node_build_1_on_master(monkeypatch, caplog) -> None:
 
     invoke_brick_command(monkeypatch, command="build", folder=EXAMPLE_NODE_FOLDER)
 
-    info_logs = get_log_messages(caplog, logging.INFO)
     debug_logs = get_log_messages(caplog, logging.DEBUG)
-
-    assert info_logs == [
-        "🔨 Preparing brick_example_node..",
-        "Cache invalidated by COPY  [brick_example_node/package.json, /home/brick_exampl...",
-        "💯 Preparation phase done!",
-        "🔨 Building brick_example_node..",
-        "Cache invalidated by COPY  [brick_example_node/src, /home/brick_example_node/src]",
-        "💯 Finished building brick_example_node!",
-    ]
 
     expected_docker_images_built = {
         "brick_example_node_prepare:latest",
@@ -173,15 +161,7 @@ def test_examples_node_build_2_on_master(caplog, monkeypatch) -> None:
 
     invoke_brick_command(monkeypatch, command="build", folder=EXAMPLE_NODE_FOLDER)
 
-    info_logs = get_log_messages(caplog, logging.INFO)
     debug_logs = get_log_messages(caplog, logging.DEBUG)
-
-    assert info_logs == [
-        "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done (cached)!",
-        "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node (cached)!",
-    ]
 
     assert get_docker_images()[0] == {
         "brick_example_node_build:latest",
@@ -204,15 +184,7 @@ def test_examples_node_build_3_on_feature_branch(caplog, monkeypatch) -> None:
 
     invoke_brick_command(monkeypatch, command="build", folder=EXAMPLE_NODE_FOLDER)
 
-    info_logs = get_log_messages(caplog, logging.INFO)
     debug_logs = get_log_messages(caplog, logging.DEBUG)
-
-    assert info_logs == [
-        "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done (cached)!",
-        "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node (cached)!",
-    ]
 
     expected_docker_images_built = {
         "brick_example_node_prepare:latest",
@@ -252,30 +224,7 @@ def test_workspace_build(monkeypatch, caplog) -> None:
 
     invoke_brick_command(monkeypatch, command="build", folder=EXAMPLES_FOLDER, recursive=True)
 
-    info_logs = get_log_messages(caplog, logging.INFO)
     debug_logs = get_log_messages(caplog, logging.DEBUG)
-
-    # TODO: we are clearly re-building too much here:
-    assert info_logs[:16] == [
-        "Found 2 target(s)..",
-        "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done (cached)!",
-        "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node (cached)!",
-        "🔨 Preparing brick_example_python..",
-        "Cache invalidated by WORKDIR /home/brick_example_python",
-        "💯 Preparation phase done!",
-        "🔨 Building brick_example_python..",
-        "➡️  Building dependency brick_example_node",
-        "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done (cached)!",
-        "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node (cached)!",
-        "Cache invalidated by COPY  [brick_example_python/src, " "/home/brick_example_python/src]",
-        "💯 Finished building brick_example_python!",
-    ]
-
-    assert info_logs[16].startswith("🌟 All targets finished in")
 
     expected_docker_images_built = {
         "brick_example_node_prepare:latest",
@@ -303,30 +252,9 @@ def test_workspace_test(monkeypatch, caplog) -> None:
 
     invoke_brick_command(monkeypatch, command="test", folder=EXAMPLES_FOLDER, recursive=True)
 
-    info_logs = get_log_messages(caplog, logging.INFO)
     debug_logs = get_log_messages(caplog, logging.DEBUG)
-
-    assert info_logs[:14] == [
-        "Found 2 target(s)..",
-        "Nothing to test",  # TODO: improve the log...
-        "🔨 Preparing brick_example_python..",
-        "💯 Preparation phase done (cached)!",
-        "🔨 Building brick_example_python..",
-        "➡️  Building dependency brick_example_node",
-        "🔨 Preparing brick_example_node..",
-        "💯 Preparation phase done (cached)!",
-        "🔨 Building brick_example_node..",
-        "💯 Finished building brick_example_node (cached)!",
-        "💯 Finished building brick_example_python (cached)!",
-        "🔍 Testing brick_example_python..",
-        "Cache invalidated by WORKDIR /home/brick_example_python",
-        "✅ Tests passed!",
-    ]
-
-    assert info_logs[14].startswith("🌟 All targets finished in")
 
     assert get_docker_images_built_from_debug_logs(debug_logs) == {
         "brick_example_python_test:master",
         "brick_example_python_test:latest",
     }
-
