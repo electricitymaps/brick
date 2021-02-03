@@ -358,7 +358,7 @@ def build(ctx, target, skip_previous_steps):
 
     # Gather output
     for output in step.get("outputs", []):
-        logger.debug(f"Collecting {os.path.join(target_rel_path, output)}..")
+        logger.debug(f"Collecting {os.path.join(target_rel_path, output)} from {digest}")
         # Make sure we check that outputs are in this folder,
         # as else the dependency system won't work
         if os.path.abspath(os.path.join(ROOT_PATH, target_rel_path)) not in os.path.abspath(
