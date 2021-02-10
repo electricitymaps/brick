@@ -552,13 +552,19 @@ def develop(ctx, target, skip_previous_steps=None):
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     config = get_config(target)
     steps = config["steps"]
+    name = get_name(target_rel_path)
     # Make sure that the arg is not given to us due to a ctx.invoke
     # then we get it ourselves from the parent context
     if skip_previous_steps is None:
         skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     # Make sure to run the previous step
-    digest = ctx.invoke(prepare, target=target)
+    prepare_tag = compute_tags(name, "prepare")[-1]
+    should_run_prepare = not skip_previous_steps or not image_exists(prepare_tag)
+    if should_run_prepare:
+        digest = ctx.invoke(prepare, target=target)
+    else:
+        digest = prepare_tag
 
     step = steps["develop"]
     prepare_step = steps.get("prepare")
