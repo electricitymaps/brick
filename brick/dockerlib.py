@@ -15,7 +15,7 @@ docker_client = docker.from_env()
 
 
 def docker_run(tag, command, volumes=None, ports=None, environment=None):
-    cmd = "docker run --rm -ti"
+    cmd = 'docker run --rm -ti --entrypoint=""'
     if volumes:
         cmd += f' {" ".join([f"-v {os.path.abspath(v)}:/home/{os.path.relpath(v, ROOT_PATH)}" for v in volumes])}'
     if ports:
