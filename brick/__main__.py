@@ -294,7 +294,7 @@ def prepare(ctx, target, skip_previous_steps=None):
 @cli.command()
 @click.argument("target", default=".")
 @click.pass_context
-def build(ctx, target, skip_previous_steps):
+def build(ctx, target, skip_previous_steps=None):
     if check_recursive(ctx, target, build):
         return
 
