@@ -191,6 +191,8 @@ def check_recursive(ctx, target, fun):
         for recursive_target in targets:
             # Note: the recursive parameter will not be passed
             # and thus the recursion will end here
+            # However, we need to pass other parent parameters
+            # manually
             ctx.invoke(
                 fun,
                 target=recursive_target,
@@ -246,9 +248,8 @@ def list_(ctx, target):
 
 @cli.command()
 @click.argument("target", default=".")
-@click.argument("skip_previous_steps", default=False)
 @click.pass_context
-def prepare(ctx, target, skip_previous_steps):
+def prepare(ctx, target, skip_previous_steps=None):
     if check_recursive(ctx, target, prepare):
         return
 
@@ -257,6 +258,10 @@ def prepare(ctx, target, skip_previous_steps):
     config = get_config(target)
     steps = config["steps"]
     name = get_name(target_rel_path)
+    # Make sure that the arg is not given to us due to a ctx.invoke
+    # then we get it ourselves from the parent context
+    if skip_previous_steps is None:
+        skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     if "prepare" not in steps:
         logger.info("Nothing to prepare")
@@ -288,7 +293,6 @@ def prepare(ctx, target, skip_previous_steps):
 
 @cli.command()
 @click.argument("target", default=".")
-@click.argument("skip_previous_steps", default=False)
 @click.pass_context
 def build(ctx, target, skip_previous_steps):
     if check_recursive(ctx, target, build):
@@ -299,6 +303,10 @@ def build(ctx, target, skip_previous_steps):
     config = get_config(target)
     steps = config["steps"]
     name = get_name(target_rel_path)
+    # Make sure that the arg is not given to us due to a ctx.invoke
+    # then we get it ourselves from the parent context
+    if skip_previous_steps is None:
+        skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     # Run the previous step if required
     prepare_tag = compute_tags(name, "prepare")[-1]
@@ -399,9 +407,8 @@ def build(ctx, target, skip_previous_steps):
 
 @cli.command()
 @click.argument("target", default=".")
-@click.argument("skip_previous_steps", default=False)
 @click.pass_context
-def test(ctx, target, skip_previous_steps):
+def test(ctx, target, skip_previous_steps=None):
     if check_recursive(ctx, target, test):
         return
 
@@ -410,6 +417,10 @@ def test(ctx, target, skip_previous_steps):
     config = get_config(target)
     steps = config["steps"]
     name = get_name(target_rel_path)
+    # Make sure that the arg is not given to us due to a ctx.invoke
+    # then we get it ourselves from the parent context
+    if skip_previous_steps is None:
+        skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     if "test" not in steps:
         logger.info("Nothing to test")
@@ -445,10 +456,9 @@ def test(ctx, target, skip_previous_steps):
 
 @cli.command()
 @click.argument("target", default=".")
-@click.argument("skip_previous_steps", default=False)
 @click.option("--no-cache", default=False, is_flag=True, help="skip caching deployment")
 @click.pass_context
-def deploy(ctx, target, skip_previous_steps, no_cache):
+def deploy(ctx, target, no_cache, skip_previous_steps=None):
     if check_recursive(ctx, target, deploy):
         return
 
@@ -456,6 +466,10 @@ def deploy(ctx, target, skip_previous_steps, no_cache):
     config = get_config(target)
     steps = config["steps"]
     name = get_name(target_rel_path)
+    # Make sure that the arg is not given to us due to a ctx.invoke
+    # then we get it ourselves from the parent context
+    if skip_previous_steps is None:
+        skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     if "deploy" not in steps:
         logger.info("Nothing to deploy")
@@ -534,10 +548,14 @@ def deploy(ctx, target, skip_previous_steps, no_cache):
 @cli.command()
 @click.argument("target", default=".")
 @click.pass_context
-def develop(ctx, target):
+def develop(ctx, target, skip_previous_steps=None):
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     config = get_config(target)
     steps = config["steps"]
+    # Make sure that the arg is not given to us due to a ctx.invoke
+    # then we get it ourselves from the parent context
+    if skip_previous_steps is None:
+        skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     # Make sure to run the previous step
     digest = ctx.invoke(prepare, target=target)
@@ -570,15 +588,19 @@ def develop(ctx, target):
 
 @cli.command()
 @click.argument("target", default=".")
-@click.argument("skip_previous_steps", default=False)
 @click.pass_context
-def prune(ctx, target, skip_previous_steps):
+def prune(ctx, target, skip_previous_steps=None):
     if check_recursive(ctx, target, prune):
         return
 
     start_time = time.perf_counter()
     target_rel_path = os.path.relpath(target, start=ROOT_PATH)
     name = get_name(target_rel_path)
+    # Make sure that the arg is not given to us due to a ctx.invoke
+    # then we get it ourselves from the parent context
+    if skip_previous_steps is None:
+        skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
+
     for image in docker_images_list(name, last_tagged_before=arrow.utcnow().shift(days=-3)):
         # If no tag contains `master` or `latest`,
         # then this must be a branch build,
