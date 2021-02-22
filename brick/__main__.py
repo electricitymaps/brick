@@ -4,8 +4,7 @@ import logging
 import os
 import shutil
 import time
-import io
-import tarfile
+import subprocess
 
 import arrow
 import click
@@ -45,6 +44,10 @@ IMAGES_TO_YARN_CACHE_VERSION_DICT = {
     "node:10.19.0-alpine": "v6",
     "node:12.13.1": "v6",
 }
+
+
+def run_shell_command(cmd: str, check=True):
+    return subprocess.check_output(cmd, shell=True, encoding="utf8",).rstrip("\n")
 
 
 def is_yarn_install_command(cmd):
@@ -382,23 +385,11 @@ def build(ctx, target, skip_previous_steps=None):
             else:
                 os.remove(host_path)
 
-        # Pull out the outputs to the host
-        container = docker_client.containers.run(image=digest, remove=True, detach=True)
-        try:
-            archive_bits, _stats = container.get_archive(container_path)
-        except docker.errors.NotFound:
-            # We see periodic failures, not sure if we should restart the container?
-            logger.info(f"Collecting failed, retrying")
-            time.sleep(2)
-            archive_bits, _stats = container.get_archive(container_path)
-
-        with io.BytesIO() as archive_tar_content:
-            for chunk in archive_bits:
-                archive_tar_content.write(chunk)
-            archive_tar_content.seek(0)
-            with tarfile.open(fileobj=archive_tar_content, mode="r:") as tar:
-                host_output_folder = os.path.abspath(os.path.join(host_path, "../"))
-                tar.extractall(host_output_folder)
+        host_output_folder = os.path.abspath(os.path.join(host_path, "../"))
+        # The docker create command creates a writeable container layer over the
+        # specified image and prepares it for running the specified command.
+        container_id = run_shell_command(f"docker create {digest}")
+        run_shell_command(f"docker cp {container_id}:{container_path} {host_output_folder}")
 
     logger.info(f"💯 Finished building {target_rel_path}{' (cached)' if is_cached else ''}!")
     log_exec_time("build", target_rel_path, start_time)
