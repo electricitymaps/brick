@@ -19,7 +19,7 @@ setuptools.setup(
     install_requires=[
         "arrow==0.12.1",
         "braceexpand==0.1.2",
-        "Click==7.0",
+        "Click==7.1.2",
         "pyaml==19.4.1",
         "docker==3.7.0",
         "typing-extensions==3.7.4.3",
