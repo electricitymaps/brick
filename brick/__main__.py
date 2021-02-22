@@ -386,10 +386,9 @@ def build(ctx, target, skip_previous_steps=None):
                 os.remove(host_path)
 
         host_output_folder = os.path.abspath(os.path.join(host_path, "../"))
-        # The docker create command creates a writeable container layer over the
-        # specified image and prepares it for running the specified command.
         container_id = run_shell_command(f"docker create {digest}")
         run_shell_command(f"docker cp {container_id}:{container_path} {host_output_folder}")
+        run_shell_command(f"docker rm -v {container_id}")
 
     logger.info(f"💯 Finished building {target_rel_path}{' (cached)' if is_cached else ''}!")
     log_exec_time("build", target_rel_path, start_time)
