@@ -98,10 +98,17 @@ def compute_hash_from_paths(paths: List[str]) -> str:
     if not paths:
         raise ValueError("Expected input paths")
 
+    t_start = time.time()
     sha1_command = get_sha1_command()
     cmd = f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 {sha1_command} | {sha1_command}"
     sha1_sum: str = run_shell_command(cmd=cmd, cwd=ROOT_PATH).split(" ")[0].strip()
     assert len(sha1_sum) == 40, "expected sha1sum of length 40"
+
+    # Wasting more than a few seconds hashing usually means that the input dependencies
+    # should be tweaked.
+    hashing_time = time.time() - t_start
+    if hashing_time > 3:
+        logger.info(f'😴 Observed slow hashing ({hashing_time:.1f}s) for command "{cmd}"')
 
     return sha1_sum
 
