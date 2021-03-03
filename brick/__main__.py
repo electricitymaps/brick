@@ -4,7 +4,6 @@ import logging
 import os
 import shutil
 import time
-import subprocess
 
 import arrow
 import click
@@ -27,6 +26,7 @@ from .lib import (
 )
 from .git import GIT_BRANCH
 from .logger import logger, handler
+from .shell import run_shell_command
 
 docker_client = docker.from_env()
 
@@ -44,10 +44,6 @@ IMAGES_TO_YARN_CACHE_VERSION_DICT = {
     "node:10.19.0-alpine": "v6",
     "node:12.13.1": "v6",
 }
-
-
-def run_shell_command(cmd: str, check=True):
-    return subprocess.check_output(cmd, shell=True, encoding="utf8",).rstrip("\n")
 
 
 def is_yarn_install_command(cmd):
