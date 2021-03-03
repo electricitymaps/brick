@@ -10,7 +10,7 @@ def run_shell_command(cmd: str, cwd: str = None) -> str:
 
 
 def get_sha1_command() -> str:
-    """Returns the sha1sum command support by the system"""
+    """Returns the fastest sha1sum command supported by the system"""
     # pylint: disable=global-statement
     global _sha1_command
     if not _sha1_command:
