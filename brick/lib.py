@@ -1,13 +1,14 @@
 import glob
 import os
-import subprocess
 from typing import List
 import re
+import time
 
 import yaml
 from braceexpand import braceexpand
 
 from .logger import logger
+from .shell import get_sha1_command, run_shell_command
 
 
 # Discover root path
@@ -96,16 +97,12 @@ def compute_hash_from_paths(paths: List[str]) -> str:
     """
     if not paths:
         raise ValueError("Expected input paths")
-    stdout = subprocess.run(
-        f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 shasum | shasum",
-        shell=True,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        cwd=ROOT_PATH,
-    ).stdout
-    sha1_sum = stdout.decode("utf-8").split(" ")[0].strip()
+
+    sha1_command = get_sha1_command()
+    cmd = f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 {sha1_command} | {sha1_command}"
+    sha1_sum: str = run_shell_command(cmd=cmd, cwd=ROOT_PATH).split(" ")[0].strip()
     assert len(sha1_sum) == 40, "expected sha1sum of length 40"
+
     return sha1_sum
 
 
