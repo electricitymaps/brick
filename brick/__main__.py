@@ -4,7 +4,6 @@ import logging
 import os
 import shutil
 import time
-import subprocess
 
 import arrow
 import click
@@ -27,6 +26,7 @@ from .lib import (
 )
 from .git import GIT_BRANCH
 from .logger import logger, handler
+from .shell import run_shell_command
 
 docker_client = docker.from_env()
 
@@ -45,17 +45,15 @@ IMAGES_TO_YARN_CACHE_VERSION_DICT = {
     "node:12.13.1": "v6",
 }
 
-
-def run_shell_command(cmd: str, check=True):
-    return subprocess.check_output(cmd, shell=True, encoding="utf8",).rstrip("\n")
+POETRY_CACHE_LOCATION = "/root/.cache/pypoetry"
 
 
 def is_yarn_install_command(cmd):
-    install_commands = ["yarn", "yarn install"]
-    # Strip flags and trim the string
-    split = cmd.split("--")
-    clean_command = split[0].strip()
-    return clean_command in install_commands
+    return cmd.startswith("yarn") or cmd.startswith("yarn install")
+
+
+def is_poetry_install_command(cmd):
+    return cmd.startswith("poetry install")
 
 
 timings = []
@@ -151,6 +149,9 @@ def generate_dockerfile_contents(
             location = f"{YARN_CACHE_LOCATION}/{cache_version}"
             logger.debug(f"Using yarn cache located at {location}")
             run_flags += [f"--mount=type=cache,target={location}"]
+        if is_poetry_install_command(cmd):
+            logger.debug(f"Using poetry cache located at {POETRY_CACHE_LOCATION}")
+            run_flags += [f"--mount=type=cache,target={POETRY_CACHE_LOCATION}"]
         if (secrets or {}).items():
             # Wrap the run command with a tar command
             # to untar and cleanup after us
