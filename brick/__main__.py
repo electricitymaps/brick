@@ -47,11 +47,7 @@ IMAGES_TO_YARN_CACHE_VERSION_DICT = {
 
 
 def is_yarn_install_command(cmd):
-    install_commands = ["yarn", "yarn install"]
-    # Strip flags and trim the string
-    split = cmd.split("--")
-    clean_command = split[0].strip()
-    return clean_command in install_commands
+    return cmd.startswith("yarn") or cmd.startswith("yarn install")
 
 
 timings = []
