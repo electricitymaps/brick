@@ -424,6 +424,7 @@ def test(ctx, target, skip_previous_steps=None):
 
     step = steps["test"]
     inputs = expand_inputs(target_rel_path, step.get("inputs", []))
+    dependency_paths = inputs + [get_relative_config_path(target)]
     dockerfile_contents = generate_dockerfile_contents(
         from_image=build_tag,
         inputs=inputs,
@@ -437,7 +438,7 @@ def test(ctx, target, skip_previous_steps=None):
     logger.info(f"🔍 Testing {target_rel_path}..")
     digest, is_cached = docker_build(
         tags=compute_tags(name, "test"),
-        dependency_paths=None,  # always run tests
+        dependency_paths=dependency_paths,
         dockerfile_contents=dockerfile_contents,
     )
     logger.info(f"✅ Tests passed{' (cached)' if is_cached else ''}!")
