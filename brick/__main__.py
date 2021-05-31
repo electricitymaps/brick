@@ -500,7 +500,7 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
         return
 
     inputs = expand_inputs(target_rel_path, step.get("inputs", []))
-    inputs_from_build = None
+    inputs_from_build = []
     from_image = previous_tag
 
     if "image" in step:
@@ -511,6 +511,8 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
         inputs_from_build = [
             (previous_tag, os.path.join(target_rel_path, o)) for o in ["."] + outputs
         ]
+
+    dependency_paths = inputs + [get_relative_config_path(target)] + inputs_from_build
 
     dockerfile_contents = generate_dockerfile_contents(
         from_image=from_image,
@@ -529,7 +531,7 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
     _, is_cached = docker_build(
         tags=compute_tags(name, "deploy"),
         dockerfile_contents=dockerfile_contents,
-        dependency_paths=None,  # always run deployment
+        dependency_paths=dependency_paths,
         pass_ssh=step.get("pass_ssh", False),
         secrets=step.get("secrets"),
         no_cache=no_cache,
