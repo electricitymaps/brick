@@ -98,6 +98,9 @@ def compute_hash_from_paths(paths: List[str]) -> str:
     if not paths:
         raise ValueError("Expected input paths")
 
+    if not isinstance(paths, list):
+        raise ValueError(f"Expected input paths as a list, got {type(paths)}")
+
     t_start = time.time()
     sha1_command = get_sha1_command()
     cmd = f"find {' '.join(paths)} -type f -print0 | sort -z | xargs -0 {sha1_command} | {sha1_command}"
