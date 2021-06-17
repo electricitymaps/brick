@@ -580,9 +580,6 @@ def develop(ctx, target, skip_previous_steps=None):
     logger.info(f"🔨 Developing {target_rel_path}..")
     docker_run(tag=digest, command=command, volumes=volumes, ports=ports, environment=environment)
 
-    logger.info(f"👋 Finished developing {target_rel_path}")
-    return digest
-
 
 @cli.command()
 @click.argument("target", default=".")
