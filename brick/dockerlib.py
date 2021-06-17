@@ -3,6 +3,7 @@ import re
 import tempfile
 import subprocess
 import sys
+import uuid
 
 from typing import List, Tuple
 import docker
@@ -85,10 +86,8 @@ def docker_build(
             tag_image(image_name=image_with_latest_tag, tags=tags)
             return tag_to_return, is_cached
 
-    dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
-    if os.path.exists(dockerfile_path):
-        logger.warning(f"{dockerfile_path} already exists at root of workspace")
-        os.remove(dockerfile_path)
+    dockerfile_path = os.path.join(ROOT_PATH, f".brickdockerfile.{str(uuid.uuid4())[:13]}")
+    assert not os.path.exists(dockerfile_path)
     with open(dockerfile_path, "w+") as dockerfile:
         dockerfile.write(dockerfile_contents)
     try:
