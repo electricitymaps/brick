@@ -70,20 +70,8 @@ def docker_build(
             logger.debug(f"Skipping docker build as images are up to date with input dependencies")
             return tag_to_return, is_cached
 
-        # Investigate if we can promote an image instead of building it again
-        image_names = {t.split(":")[0] for t in tags}
-        related_images_with_latest_tag = [
-            image
-            for image in images_matching_hash
-            if image.split(":")[0] in image_names and image.endswith(":latest")
-        ]
-
-        if related_images_with_latest_tag:
-            # Note that we could probably allow branch images to be used for promotion.
-            image_with_latest_tag = related_images_with_latest_tag[0]
-            logger.debug(f"Promoting image {image_with_latest_tag}")
-            tag_image(image_name=image_with_latest_tag, tags=tags)
-            return tag_to_return, is_cached
+        # NOTE: Further optimization: promoting/re-tagging an image that matches the hash is possible,
+        # but the image will lose the original tag (which will cause a slowdown for other builds).
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
     if os.path.exists(dockerfile_path):
