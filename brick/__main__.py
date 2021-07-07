@@ -64,11 +64,12 @@ red = "\x1b[31;21m"
 reset = "\x1b[0m"
 
 
-def log_exec_time(task, target, start):
+def log_exec_details(task, target, start, is_cached=False):
     end = time.perf_counter()
     duration = round(end - start, 2)
     duration_color = red if duration > 10 else green
-    text = f"  {duration_color}{duration}s{reset} - {cyan}{task}{reset} of {yellow}{target}{reset}"
+    cached_message = " (cached)" if is_cached else ""
+    text = f"  {duration_color}{duration}s{reset} - {cyan}{task}{reset} of {yellow}{target}{reset}{cached_message}"
     timings.append(text)
 
 
@@ -290,7 +291,7 @@ def prepare(ctx, target, skip_previous_steps=None):
         tags=tags, dependency_paths=dependency_paths, dockerfile_contents=dockerfile_contents
     )
     logger.info(f"💯 Preparation phase done{' (cached)' if is_cached else ''}!")
-    log_exec_time("prepare", target_rel_path, start_time)
+    log_exec_details("prepare", target_rel_path, start_time, is_cached)
     # TODO: For some reason, buildkit doesn't support FROM with digests
     return digest
 
@@ -392,7 +393,7 @@ def build(ctx, target, skip_previous_steps=None):
         run_shell_command(f"docker rm -v {container_id}")
 
     logger.info(f"💯 Finished building {target_rel_path}{' (cached)' if is_cached else ''}!")
-    log_exec_time("build", target_rel_path, start_time)
+    log_exec_details("build", target_rel_path, start_time, is_cached)
     return digest
 
 
@@ -442,7 +443,7 @@ def test(ctx, target, skip_previous_steps=None):
         dockerfile_contents=dockerfile_contents,
     )
     logger.info(f"✅ Tests passed{' (cached)' if is_cached else ''}!")
-    log_exec_time("test", target_rel_path, start_time)
+    log_exec_details("test", target_rel_path, start_time, is_cached)
     return digest
 
 
@@ -609,7 +610,7 @@ def prune(ctx, target, skip_previous_steps=None):
         logger.info(f'Deleting {image["tags"][0]} ({round(image["size"] / 1024 / 1024)}M)..')
         docker_image_delete(image["id"], force=True)
 
-    log_exec_time("prune", target_rel_path, start_time)
+    log_exec_details("prune", target_rel_path, start_time)
 
 
 def entrypoint():
