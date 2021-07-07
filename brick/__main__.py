@@ -64,7 +64,7 @@ red = "\x1b[31;21m"
 reset = "\x1b[0m"
 
 
-def log_exec_details(task, target, start, is_cached = False):
+def log_exec_details(task, target, start, is_cached=False):
     end = time.perf_counter()
     duration = round(end - start, 2)
     duration_color = red if duration > 10 else green
