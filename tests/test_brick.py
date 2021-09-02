@@ -206,8 +206,8 @@ def test_examples_node_build_3_on_feature_branch(caplog, monkeypatch) -> None:
     assert (
         not "Skipping docker build as images are up to date with input dependencies" in debug_logs
     )
-    assert "Promoting image brick_example_node_prepare:latest" in debug_logs
-    assert "Promoting image brick_example_node_build:latest" in debug_logs
+    assert "Promoting image brick_example_node_prepare" in debug_logs
+    assert "Promoting image brick_example_node_build" in debug_logs
 
     assert get_docker_images_built_from_debug_logs(debug_logs) == expected_docker_images_built
 

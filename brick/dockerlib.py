@@ -50,8 +50,8 @@ def docker_build(
 
     # Optimization: Skip builds if the hash of dependencies (base image + inputs) did not change since
     # the last build.
-    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a 1+
-    # second overhead for each image (steps: "resolve image config for" + "load metadata for").
+    # Even though Buildkit is fairly fast at verifying that nothing changed, there is still a
+    # ~10 second overhead for each image (steps: "resolve image config for" + "load metadata for").
     # Performance example: When everything is cached this gives a 3.5X speedup locally for 38 targets. (180 to 52 seconds)
     #                      On CI we go from 8 minutes to 3.5 minutes
     from_image_id = get_image_id_from_dockerfile_contents(dockerfile_contents)
@@ -71,18 +71,16 @@ def docker_build(
             return tag_to_return, is_cached
 
         # Investigate if we can promote an image instead of building it again
+        # We base this on the image name of the images matching the hash
         image_names = {t.split(":")[0] for t in tags}
-        related_images_with_latest_tag = [
-            image
-            for image in images_matching_hash
-            if image.split(":")[0] in image_names and image.endswith(":latest")
+        images_matching_hash_and_name = [
+            image for image in images_matching_hash if image.split(":")[0] in image_names
         ]
 
-        if related_images_with_latest_tag:
-            # Note that we could probably allow branch images to be used for promotion.
-            image_with_latest_tag = related_images_with_latest_tag[0]
-            logger.debug(f"Promoting image {image_with_latest_tag}")
-            tag_image(image_name=image_with_latest_tag, tags=tags)
+        if images_matching_hash_and_name:
+            first_image_matching_hash_and_name = images_matching_hash_and_name[0]
+            logger.debug(f"Promoting image {first_image_matching_hash_and_name}")
+            tag_image(image_name=first_image_matching_hash_and_name, tags=tags)
             return tag_to_return, is_cached
 
     dockerfile_path = os.path.join(ROOT_PATH, ".brickdockerfile")
