@@ -178,6 +178,7 @@ def docker_build(
                 _out, err = p.communicate()
                 logger.error("\n".join(logs))
                 logger.error(err)
+                logger.error(f"Failed building docker images for: {tags}")
                 sys.exit(returncode)
             os.remove(dockerfile_path)
     except (KeyboardInterrupt, SystemExit):

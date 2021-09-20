@@ -269,7 +269,7 @@ def prepare(ctx, target, skip_previous_steps=None):
         skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     if "prepare" not in steps:
-        logger.info("Nothing to prepare")
+        logger.debug(f"{target_rel_path}: Nothing to prepare")
         return
 
     step = steps["prepare"]
@@ -285,12 +285,12 @@ def prepare(ctx, target, skip_previous_steps=None):
     )
 
     # Docker build
-    logger.info(f"🔨 Preparing {target_rel_path}..")
+    logger.info(f"🔨 {target_rel_path}: Prepare")
     tags = compute_tags(name, "prepare")
     digest, is_cached = docker_build(
         tags=tags, dependency_paths=dependency_paths, dockerfile_contents=dockerfile_contents
     )
-    logger.info(f"💯 Preparation phase done{' (cached)' if is_cached else ''}!")
+    logger.info(f"   {target_rel_path}: Prepare finished{' (cached)' if is_cached else ''}")
     log_exec_details("prepare", target_rel_path, start_time, is_cached)
     # TODO: For some reason, buildkit doesn't support FROM with digests
     return digest
@@ -320,14 +320,14 @@ def build(ctx, target, skip_previous_steps=None):
         prepare_tag = ctx.invoke(prepare, target=target)
 
     step = steps["build"]
-    logger.info(f"🔨 Building {target_rel_path}..")
+    logger.info(f"🔨 {target_rel_path}: Build")
 
     # Build dependencies
     dependencies = intersecting_outputs(target_rel_path, step.get("inputs", []))
     if dependencies:
         logger.debug(f"Found dependencies: {dependencies}")
         for dependency in dependencies:
-            logger.info(f"➡️  Building dependency {dependency}")
+            logger.info(f"➡️  {target_rel_path}: Building dependency {dependency}")
             ctx.invoke(build, target=os.path.join(ROOT_PATH, dependency))
 
     # Note build dependencies must be done pre-glob
@@ -392,7 +392,7 @@ def build(ctx, target, skip_previous_steps=None):
         run_shell_command(f"docker cp {container_id}:{container_path} {host_output_folder}")
         run_shell_command(f"docker rm -v {container_id}")
 
-    logger.info(f"💯 Finished building {target_rel_path}{' (cached)' if is_cached else ''}!")
+    logger.info(f"   {target_rel_path}: Build finished{' (cached)' if is_cached else ''}")
     log_exec_details("build", target_rel_path, start_time, is_cached)
     return digest
 
@@ -415,7 +415,7 @@ def test(ctx, target, skip_previous_steps=None):
         skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     if "test" not in steps:
-        logger.info("Nothing to test")
+        logger.debug(f"  {target_rel_path}: Nothing to test")
         return
 
     build_tag = compute_tags(name, "build")[-1]
@@ -436,13 +436,13 @@ def test(ctx, target, skip_previous_steps=None):
     )
 
     # Docker build
-    logger.info(f"🔍 Testing {target_rel_path}..")
+    logger.info(f"🔍 {target_rel_path}: Test")
     digest, is_cached = docker_build(
         tags=compute_tags(name, "test"),
         dependency_paths=dependency_paths,
         dockerfile_contents=dockerfile_contents,
     )
-    logger.info(f"✅ Tests passed{' (cached)' if is_cached else ''}!")
+    logger.info(f"✅ {target_rel_path}: Test finished{' (cached)' if is_cached else ''}")
     log_exec_details("test", target_rel_path, start_time, is_cached)
     return digest
 
@@ -465,7 +465,7 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
         skip_previous_steps = ctx.parent.params.get("skip_previous_steps")
 
     if "deploy" not in steps:
-        logger.info("Nothing to deploy")
+        logger.debug(f"{target_rel_path}: Nothing to deploy")
         return
 
     step = steps["deploy"]
@@ -490,7 +490,7 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
         assert repository_and_tag, "Expected build.tag when push_image was used"
         repository, tag = repository_and_tag
 
-        logger.info(f"📡 Pushing {repository}:{tag}..")
+        logger.info(f"📡 {target_rel_path}: Pushing {repository}:{tag}")
 
         for line in docker_client.images.push(repository, tag=tag, stream=True, decode=True):
             if "errorDetail" in line:
@@ -525,7 +525,7 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
     )
 
     # Docker build
-    logger.info(f"🚀 Deploying {target_rel_path}..")
+    logger.info(f"🚀 {target_rel_path}: Deploying")
 
     _, is_cached = docker_build(
         tags=compute_tags(name, "deploy"),
@@ -535,7 +535,7 @@ def deploy(ctx, target, no_cache, skip_previous_steps=None):
         secrets=step.get("secrets"),
         no_cache=no_cache,
     )
-    logger.info(f"💯 Deploy finished{' (cached)' if is_cached else ''}!")
+    logger.info(f"  {target_rel_path}: Deploy finished{' (cached)' if is_cached else ''}")
 
 
 @cli.command()
@@ -578,10 +578,10 @@ def develop(ctx, target, skip_previous_steps=None):
     environment = step.get("environment")
 
     # Docker run
-    logger.info(f"🔨 Developing {target_rel_path}..")
+    logger.info(f"🔨 {target_rel_path}: Developing")
     docker_run(tag=digest, command=command, volumes=volumes, ports=ports, environment=environment)
 
-    logger.info(f"👋 Finished developing {target_rel_path}")
+    logger.info(f"👋 {target_rel_path}: Finished developing")
     return digest
 
 
