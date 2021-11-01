@@ -45,15 +45,9 @@ IMAGES_TO_YARN_CACHE_VERSION_DICT = {
     "node:12.13.1": "v6",
 }
 
-POETRY_CACHE_LOCATION = "/root/.cache/pypoetry"
-
 
 def is_yarn_install_command(cmd):
     return cmd.startswith("yarn") or cmd.startswith("yarn install")
-
-
-def is_poetry_install_command(cmd):
-    return cmd.startswith("poetry install")
 
 
 timings = []
@@ -150,9 +144,6 @@ def generate_dockerfile_contents(
             location = f"{YARN_CACHE_LOCATION}/{cache_version}"
             logger.debug(f"Using yarn cache located at {location}")
             run_flags += [f"--mount=type=cache,target={location}"]
-        if is_poetry_install_command(cmd):
-            logger.debug(f"Using poetry cache located at {POETRY_CACHE_LOCATION}")
-            run_flags += [f"--mount=type=cache,target={POETRY_CACHE_LOCATION}"]
         if (secrets or {}).items():
             # Wrap the run command with a tar command
             # to untar and cleanup after us
