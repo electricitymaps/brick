@@ -1,6 +1,6 @@
 # brick 🧱
 
-`brick` is a tool used to build and deploy monorepos, and is internally used at [Tomorrow](https://www.tmrow.com).
+`brick` is a tool used to build and deploy monorepos, and was used internally at [Electricity Maps](https://www.electricitymaps.com).
 It uses docker (buildkit) as the build engine.
 
 ## Installation
