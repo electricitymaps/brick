@@ -17,7 +17,7 @@ setuptools.setup(
     python_requires=">=3.6",
     entry_points={"console_scripts": ["brick=brick.__main__:entrypoint"]},
     install_requires=[
-        "arrow==0.12.1",
+        "arrow==0.15.1",
         "braceexpand==0.1.2",
         "Click==7.1.2",
         "pyaml==19.4.1",
